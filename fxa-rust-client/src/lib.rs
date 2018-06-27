@@ -31,6 +31,7 @@ extern crate url;
 
 use std::collections::HashMap;
 use std::mem;
+use std::panic::RefUnwindSafe;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use self::login_sm::LoginState::*;
@@ -102,16 +103,37 @@ struct CachedResponse<T> {
 pub struct FirefoxAccount {
     state: StateV1,
     flow_store: HashMap<String, OAuthFlow>,
+    persist_callback: Option<PersistCallback>,
     profile_cache: Option<CachedResponse<ProfileResponse>>,
 }
 
 pub type SyncKeys = (String, String);
+
+pub struct PersistCallback {
+    callback_fn: Box<Fn(&str) + RefUnwindSafe>,
+}
+
+impl PersistCallback {
+    pub fn new<F>(callback_fn: F) -> PersistCallback
+    where
+        F: Fn(&str) + 'static + RefUnwindSafe,
+    {
+        PersistCallback {
+            callback_fn: Box::new(callback_fn),
+        }
+    }
+
+    pub fn call(&self, json: &str) {
+        (*self.callback_fn)(json);
+    }
+}
 
 impl FirefoxAccount {
     fn from_state(state: StateV1) -> FirefoxAccount {
         FirefoxAccount {
             state,
             flow_store: HashMap::new(),
+            persist_callback: None,
             profile_cache: None,
         }
     }
@@ -338,6 +360,7 @@ impl FirefoxAccount {
             scopes: granted_scopes,
         };
         self.oauth_cache_store(&oauth_info);
+        self.maybe_call_persist_callback();
         Ok(oauth_info)
     }
 
@@ -443,6 +466,27 @@ impl FirefoxAccount {
         panic!("Not implemented yet!")
     }
 
+    pub fn register_persist_callback(&mut self, persist_callback: PersistCallback) {
+        self.persist_callback = Some(persist_callback);
+    }
+
+    pub fn unregister_persist_callback(&mut self) {
+        self.persist_callback = None;
+    }
+
+    fn maybe_call_persist_callback(&self) {
+        if let Some(ref cb) = self.persist_callback {
+            let json = match self.to_json() {
+                Ok(json) => json,
+                Err(_) => {
+                    error!("Error with to_json in persist_callback");
+                    return;
+                }
+            };
+            cb.call(&json);
+        }
+    }
+
     pub fn sign_out(mut self) {
         let client = Client::new(&self.state.config);
         client.sign_out();
@@ -479,7 +523,8 @@ mod tests {
 
     #[test]
     fn test_oauth_cache_store_and_find() {
-        let mut fxa = FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
+        let mut fxa =
+            FirefoxAccount::new(Config::stable_dev().unwrap(), "12345678", "https://foo.bar");
         let oauth_info = OAuthInfo {
             access_token: "abcdef".to_string(),
             keys: None,

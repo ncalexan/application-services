@@ -39,7 +39,13 @@ public class FxAConfig: MovableRustOpaquePointer {
     }
 }
 
+public protocol PersistCallback {
+    func persist(json: String)
+}
+
 public class FirefoxAccount: RustOpaquePointer {
+    fileprivate static var persistCallback: PersistCallback?
+
     open class func from(config: FxAConfig, clientId: String, redirectUri: String, webChannelResponse: String) throws -> FirefoxAccount {
         let pointer = try FxAError.unwrap({err in
             fxa_from_credentials(try config.movePointer(), clientId, redirectUri, webChannelResponse, err)
@@ -67,6 +73,20 @@ public class FirefoxAccount: RustOpaquePointer {
         return String(freeingFxaString: try FxAError.unwrap({err in
             fxa_to_json(self.raw, err)
         }))
+    }
+
+    public func registerPersistCallback(_ cb: PersistCallback) throws {
+        FirefoxAccount.persistCallback = cb
+        try FxAError.unwrap({err in
+            fxa_register_persist_callback(self.raw, persistCallbackFunction, err)
+        })
+    }
+
+    public func unregisterPersistCallback() throws {
+        FirefoxAccount.persistCallback = nil
+        try FxAError.unwrap({err in
+            fxa_unregister_persist_callback(self.raw, err)
+        })
     }
 
     public func getProfile(completionHandler: @escaping (Profile?, Error?) -> Void) {
@@ -146,6 +166,19 @@ public class FirefoxAccount: RustOpaquePointer {
         return String(freeingFxaString: try FxAError.unwrap({err in
             fxa_assertion_new(raw, audience, err)
         }))
+    }
+}
+
+/**
+ This function needs to be static as callbacks passed into Rust from Swift cannot contain state. Therefore the observers are static, as is
+ the function that we pass into Rust to receive the callback.
+ */
+private func persistCallbackFunction(json: UnsafePointer<CChar>) {
+    let json = String(cString: json)
+    if let cb = FirefoxAccount.persistCallback {
+        DispatchQueue.global(qos: .background).async {
+            cb.persist(json: json)
+        }
     }
 }
 
