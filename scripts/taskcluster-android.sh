@@ -2,6 +2,10 @@
 
 set -ex
 
+mkdir -p .cargo
+yes | cp -rf scripts/taskcluster-cargo-config .cargo/config
+cd libs/ && ./build-all.sh android && cd ..
+
 ANDROID_API_VERSION="26"
 NDK_VERSION="17"
 
@@ -59,3 +63,6 @@ done
 # Because Android needs the lib to be in a armeabi-v7a dir.
 mv fxa-client/arm fxa-client/armeabi-v7a
 mv fxa-client-deps/arm fxa-client-deps/armeabi-v7a
+
+cd fxa-client && zip -r fxa_client_android.zip * && cd .. &&
+cd fxa-client-deps && zip -r fxa_client_android_deps.zip * && cd ..
