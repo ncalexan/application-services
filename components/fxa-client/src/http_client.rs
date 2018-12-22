@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, errors::*};
-use reqwest::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+use ffi_support::http::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
 use serde_derive::*;
 use serde_json::json;
 #[cfg(feature = "browserid")]
@@ -310,7 +310,7 @@ impl<'a> Client<'a> {
         if status.is_success() || status == StatusCode::NOT_MODIFIED {
             Ok(resp)
         } else {
-            let json: std::result::Result<serde_json::Value, reqwest::Error> = resp.json();
+            let json: std::result::Result<serde_json::Value, ffi_support::http::Error> = resp.json();
             match json {
                 Ok(json) => Err(ErrorKind::RemoteError {
                     code: json["code"].as_u64().unwrap_or(0),

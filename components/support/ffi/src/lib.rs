@@ -93,11 +93,13 @@
 use std::{panic, thread};
 
 mod error;
+pub mod http;
 mod into_ffi;
 mod macros;
 mod string;
 
 pub use crate::error::*;
+pub use crate::http::*;
 pub use crate::into_ffi::*;
 pub use crate::macros::*;
 pub use crate::string::*;
