@@ -5,8 +5,7 @@
 use crate::bso_record::EncryptedBso;
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
-use hyper::StatusCode;
-use reqwest::Response;
+use ffi_support::http_facade::{Response, StatusCode};
 use serde_derive::*;
 use std::collections::HashMap;
 use std::default::Default;

@@ -4,8 +4,8 @@
 
 use crate::error::{self, ErrorKind, Result};
 use crate::util::ServerTimestamp;
-use hyper::header::AUTHORIZATION;
-use reqwest::{Client, Request, Url};
+use ffi_support::http_facade::{HttpClient, HttpClientBuilder, Request, RequestBuilder, header::{AUTHORIZATION}};
+use url::Url;
 use serde_derive::*;
 use std::borrow::{Borrow, Cow};
 use std::cell::RefCell;
@@ -46,7 +46,7 @@ struct TokenFetchResult {
 // The trait for fetching tokens - we'll provide a "real" implementation but
 // tests will re-implement it.
 trait TokenFetcher {
-    fn fetch_token(&self, request_client: &Client) -> super::Result<TokenFetchResult>;
+    fn fetch_token(&self, http_client: &HttpClient) -> super::Result<TokenFetchResult>;
     // We allow the trait to tell us what the time is so tests can get funky.
     fn now(&self) -> SystemTime;
 }
@@ -72,12 +72,12 @@ impl TokenServerFetcher {
 }
 
 impl TokenFetcher for TokenServerFetcher {
-    fn fetch_token(&self, request_client: &Client) -> Result<TokenFetchResult> {
-        let mut resp = request_client
-            .get(self.server_url.clone())
+    fn fetch_token(&self, http_client: &HttpClient) -> Result<TokenFetchResult> {
+        let builder = RequestBuilder::get(self.server_url.clone())
             .header(AUTHORIZATION, format!("Bearer {}", self.access_token))
-            .header(X_KEY_ID, self.key_id.clone())
-            .send()?;
+            .header(X_KEY_ID, self.key_id.clone());
+
+        let mut resp = http_client.fetch(builder.build()?)?;
 
         if !resp.status().is_success() {
             log::warn!("Non-success status when fetching token: {}", resp.status());
@@ -233,8 +233,8 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
 
     // Uses our fetcher to grab a new token and if successfull, derives other
     // info from that token into a usable TokenContext.
-    fn fetch_context(&self, request_client: &Client) -> Result<TokenContext> {
-        let result = self.fetcher.fetch_token(request_client)?;
+    fn fetch_context(&self, http_client: &HttpClient) -> Result<TokenContext> {
+        let result = self.fetcher.fetch_token(http_client)?;
         let token = result.token;
         let valid_until = SystemTime::now() + Duration::from_secs(token.duration);
 
@@ -254,8 +254,8 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
     // Attempt to fetch a new token and return a new state reflecting that
     // operation. If it worked a TokenState will be returned, but errors may
     // cause other states.
-    fn fetch_token(&self, request_client: &Client, previous_endpoint: Option<&str>) -> TokenState {
-        match self.fetch_context(request_client) {
+    fn fetch_token(&self, http_client: &HttpClient, previous_endpoint: Option<&str>) -> TokenState {
+        match self.fetch_context(http_client) {
             Ok(tc) => {
                 // We got a new token - check that the endpoint is the same
                 // as a previous endpoint we saw (if any)
@@ -292,11 +292,11 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
     // Returns None if the current state should be used (eg, if we are
     // holding a token that remains valid) or Some() if the state has changed
     // (which may have changed to a state with a token or an error state)
-    fn advance_state(&self, request_client: &Client, state: &TokenState) -> Option<TokenState> {
+    fn advance_state(&self, http_client: &HttpClient, state: &TokenState) -> Option<TokenState> {
         match state {
-            TokenState::NoToken => Some(self.fetch_token(request_client, None)),
+            TokenState::NoToken => Some(self.fetch_token(http_client, None)),
             TokenState::Failed(_, existing_endpoint) => Some(self.fetch_token(
-                request_client,
+                http_client,
                 existing_endpoint.as_ref().map(|e| e.as_str()),
             )),
             TokenState::Token(existing_context) => {
@@ -304,7 +304,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                     None
                 } else {
                     Some(self.fetch_token(
-                        request_client,
+                        http_client,
                         Some(existing_context.token.api_endpoint.as_str()),
                     ))
                 }
@@ -316,7 +316,7 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
                 } else {
                     // backoff period is over
                     Some(self.fetch_token(
-                        request_client,
+                        http_client,
                         existing_endpoint.as_ref().map(|e| e.as_str()),
                     ))
                 }
@@ -328,14 +328,14 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
         }
     }
 
-    fn with_token<T, F>(&self, request_client: &Client, func: F) -> Result<T>
+    fn with_token<T, F>(&self, http_client: &HttpClient, func: F) -> Result<T>
     where
         F: FnOnce(&TokenContext) -> Result<T>,
     {
         // first get a mutable ref to our existing state, advance to the
         // state we will use, then re-stash that state for next time.
         let state: &mut TokenState = &mut self.current_state.borrow_mut();
-        match self.advance_state(request_client, state) {
+        match self.advance_state(http_client, state) {
             Some(new_state) => *state = new_state,
             None => (),
         }
@@ -365,11 +365,11 @@ impl<TF: TokenFetcher> TokenProviderImpl<TF> {
         }
     }
 
-    fn authorization(&self, http_client: &Client, req: &Request) -> Result<String> {
+    fn authorization(&self, http_client: &HttpClient, req: &Request) -> Result<String> {
         self.with_token(http_client, |ctx| ctx.authorization(req))
     }
 
-    fn api_endpoint(&self, http_client: &Client) -> Result<String> {
+    fn api_endpoint(&self, http_client: &HttpClient) -> Result<String> {
         self.with_token(http_client, |ctx| Ok(ctx.token.api_endpoint.clone()))
     }
     // TODO: we probably want a "drop_token/context" type method so that when
@@ -391,11 +391,11 @@ impl TokenProvider {
         }
     }
 
-    pub fn authorization(&self, http_client: &Client, req: &Request) -> Result<String> {
+    pub fn authorization(&self, http_client: &HttpClient, req: &Request) -> Result<String> {
         self.imp.authorization(http_client, req)
     }
 
-    pub fn api_endpoint(&self, http_client: &Client) -> Result<String> {
+    pub fn api_endpoint(&self, http_client: &HttpClient) -> Result<String> {
         self.imp.api_endpoint(http_client)
     }
 }
@@ -403,11 +403,10 @@ impl TokenProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use reqwest::Client;
     use std::cell::Cell;
 
-    fn make_client() -> Client {
-        Client::builder()
+    fn make_client() -> HttpClient {
+        HttpClientBuilder::new()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("can't build client")
@@ -426,7 +425,7 @@ mod tests {
         FF: Fn() -> Result<TokenFetchResult>,
         FN: Fn() -> SystemTime,
     {
-        fn fetch_token(&self, _: &Client) -> Result<TokenFetchResult> {
+        fn fetch_token(&self, _: &HttpClient) -> Result<TokenFetchResult> {
             (self.fetch)()
         }
         fn now(&self) -> SystemTime {

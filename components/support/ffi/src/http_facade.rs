@@ -3,12 +3,63 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::fmt;
+use std::time::Duration;
 
 pub use reqwest::{get, header, Error, IntoUrl, Method, Request, Response, StatusCode, UrlError};
+pub use reqwest::header::AUTHORIZATION;
 use http::{HttpTryFrom};
 
 use reqwest::{Body, Client};
 use serde::{Serialize};
+
+#[derive(Debug)]
+pub struct HttpClient {
+    inner: reqwest::Client,
+}
+
+impl HttpClient {
+    pub fn request<U: IntoUrl>(&self, method: Method, url: U) -> RequestBuilder {
+        // // let req = url
+        // //     .into_url()
+        // //     .map(move |url| Request::new(method, url));
+        RequestBuilder { inner: self.inner.request(method, url) }
+
+        // let foo: i32 = self.inner.request(method, url);
+    }
+
+    pub fn fetch(&self, request: ::reqwest::Request) -> ::reqwest::Result<Response> {
+        self.inner.execute(request)
+    }
+}
+
+/// A builder to construct the properties of a `Request`.
+#[derive(Debug)]
+pub struct HttpClientBuilder {
+    inner: reqwest::ClientBuilder,
+}
+
+// pub fn builder() -> RequestBuilder {
+impl HttpClientBuilder {
+    pub fn new() -> HttpClientBuilder {
+        HttpClientBuilder { inner: reqwest::ClientBuilder::new() }
+    }
+
+    pub fn build(self) -> ::reqwest::Result<HttpClient> {
+        self.inner.build().map(|inner| HttpClient { inner })
+    }
+
+    /// Set a timeout for connect, read and write operations of a `Client`.
+    ///
+    /// Default is 30 seconds.
+    ///
+    /// Pass `None` to disable timeout.
+    pub fn timeout<T>(mut self, timeout: T) -> HttpClientBuilder
+    where T: Into<Option<Duration>>,
+    {
+        self.inner = self.inner.timeout(timeout);
+        self
+    }
+}
 
 /// A builder to construct the properties of a `Request`.
 #[derive(Debug)]
@@ -45,6 +96,13 @@ impl RequestBuilder {
  //        }
  //    }
 
+    fn with_inner<F>(mut self, func: F) -> RequestBuilder
+    where
+        F: FnOnce(reqwest::RequestBuilder) -> reqwest::RequestBuilder,
+    {
+        self.inner = func(self.inner);
+        self
+    }
 
     /// Add a `Header` to this Request.
     ///
@@ -64,7 +122,7 @@ impl RequestBuilder {
         reqwest::header::HeaderName: HttpTryFrom<K>,
         reqwest::header::HeaderValue: HttpTryFrom<V>,
     {
-        RequestBuilder { inner: self.inner.header(key, value) }
+        self.with_inner(|inner| inner.header(key, value))
     }
 
     /// Add a set of Headers to the existing ones on this Request.
@@ -93,18 +151,7 @@ impl RequestBuilder {
     /// # }
     /// ```
     pub fn headers(self, headers: ::reqwest::header::HeaderMap) -> RequestBuilder {
-        RequestBuilder { inner: self.inner.headers(headers) }
-        
-        // match self {
-        //     RequestBuilder { inner } => {
-        //         let inner = inner.headers(headers);
-        //         RequestBuilder {
-        //         }
-        //     }
-        // }
-        // // let inner = self.inner;
-        // self.
-        // self
+        self.with_inner(|inner| inner.headers(headers))
     }
 
     // /// Set a header with a type implementing hyper v0.11's `Header` trait.
@@ -148,7 +195,7 @@ impl RequestBuilder {
         U: fmt::Display,
         P: fmt::Display,
     {
-        RequestBuilder { inner: self.inner.basic_auth(username, password) }
+        self.with_inner(|inner| inner.basic_auth(username, password))
     }
 
     /// Enable HTTP bearer authentication.
@@ -166,7 +213,7 @@ impl RequestBuilder {
     where
         T: fmt::Display,
     {
-        RequestBuilder { inner: self.inner.bearer_auth(token) }
+        self.with_inner(|inner| inner.bearer_auth(token))
     }
 
     /// Set the request body.
@@ -214,7 +261,7 @@ impl RequestBuilder {
     /// # }
     /// ```
     pub fn body<T: Into<Body>>(self, body: T) -> RequestBuilder {
-        RequestBuilder { inner: self.inner.body(body) }
+        self.with_inner(|inner| inner.body(body))
     }
 
     /// Modify the query string of the URL.
@@ -248,7 +295,7 @@ impl RequestBuilder {
     /// This method will fail if the object you provide cannot be serialized
     /// into a query string.
     pub fn query<T: Serialize + ?Sized>(self, query: &T) -> RequestBuilder {
-        RequestBuilder { inner: self.inner.query(query) }
+        self.with_inner(|inner| inner.query(query))
     }
 
     /// Send a form body.
@@ -278,7 +325,7 @@ impl RequestBuilder {
     /// This method fails if the passed value cannot be serialized into
     /// url encoded format
     pub fn form<T: Serialize + ?Sized>(self, form: &T) -> RequestBuilder {
-        RequestBuilder { inner: self.inner.form(form) }
+        self.with_inner(|inner| inner.form(form))
     }
 
     /// Send a JSON body.
@@ -307,7 +354,7 @@ impl RequestBuilder {
     /// Serialization can fail if `T`'s implementation of `Serialize` decides to
     /// fail, or if `T` contains a map with non-string keys.
     pub fn json<T: Serialize + ?Sized>(self, json: &T) -> RequestBuilder {
-        RequestBuilder { inner: self.inner.json(json) }
+        self.with_inner(|inner| inner.json(json))
     }
 
     /// Sends a multipart/form-data body.
@@ -330,7 +377,7 @@ impl RequestBuilder {
     ///
     /// See [`multipart`](multipart/) for more examples.
     pub fn multipart(self, multipart: ::reqwest::multipart::Form) -> RequestBuilder {
-        RequestBuilder { inner: self.inner.multipart(multipart) }
+        self.with_inner(|inner| inner.multipart(multipart))
     }
 
     /// Build a `Request`, which can be inspected, modified and executed with

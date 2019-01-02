@@ -11,11 +11,14 @@ use crate::request::{
 };
 use crate::token;
 use crate::util::ServerTimestamp;
-use hyper::Method;
-use reqwest::{
-    header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
-    Client, Request, Response, Url,
-};
+// use hyper::Method;
+// use reqwest::{
+//     header::{self, HeaderValue, ACCEPT, AUTHORIZATION},
+//     Client, Request, Response, Url,
+// };
+use ffi_support::http_facade::{HttpClient, HttpClientBuilder, Method, Request, Response,
+                               header::{HeaderValue, HeaderMap, ACCEPT, AUTHORIZATION, CONTENT_TYPE}};
+use url::Url;
 use std::cell::Cell;
 use std::str::FromStr;
 use std::time::Duration;
@@ -42,7 +45,7 @@ pub trait SetupStorageClient {
 
 #[derive(Debug)]
 pub struct Sync15StorageClient {
-    http_client: Client,
+    http_client: HttpClient,
     // We update this when we make requests
     timestamp: Cell<ServerTimestamp>,
     tsc: token::TokenProvider,
@@ -100,7 +103,7 @@ impl SetupStorageClient for Sync15StorageClient {
 
 impl Sync15StorageClient {
     pub fn new(init_params: Sync15StorageClientInit) -> error::Result<Sync15StorageClient> {
-        let client = Client::builder().timeout(Duration::from_secs(30)).build()?;
+        let client = HttpClientBuilder::new().timeout(Duration::from_secs(30)).build()?;
         let tsc = token::TokenProvider::new(
             init_params.tokenserver_url,
             init_params.access_token,
@@ -166,7 +169,7 @@ impl Sync15StorageClient {
 
     fn exec_request(&self, req: Request, require_success: bool) -> error::Result<Response> {
         log::trace!("request: {} {}", req.method(), req.url().path());
-        let resp = self.http_client.execute(req)?;
+        let resp = self.http_client.fetch(req)?;
         log::trace!("response: {}", resp.status());
 
         self.update_timestamp(resp.headers());
@@ -209,7 +212,7 @@ impl Sync15StorageClient {
         Ok(result)
     }
 
-    fn update_timestamp(&self, hm: &header::HeaderMap) {
+    fn update_timestamp(&self, hm: &HeaderMap) {
         if let Some(ts) = hm
             .get(X_WEAVE_TIMESTAMP)
             .and_then(|v| v.to_str().ok())
@@ -253,7 +256,7 @@ impl Sync15StorageClient {
 
         let mut req = self.build_request(Method::PUT, url)?;
         req.headers_mut().insert(
-            header::CONTENT_TYPE,
+            CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
         );
         if let Some(ts) = xius {
@@ -292,7 +295,7 @@ impl<'a> BatchPoster for PostWrapper<'a> {
 
         let mut req = self.client.build_request(Method::POST, url)?;
         req.headers_mut().insert(
-            header::CONTENT_TYPE,
+            CONTENT_TYPE,
             HeaderValue::from_static("application/json"),
         );
         req.headers_mut().insert(

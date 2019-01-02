@@ -138,16 +138,16 @@ pub enum ErrorKind {
     BadCleartextUtf8(#[fail(cause)] string::FromUtf8Error),
 
     #[fail(display = "Network error: {}", _0)]
-    RequestError(#[fail(cause)] reqwest::Error),
+    RequestError(#[fail(cause)] ::ffi_support::http_facade::Error),
 
     #[fail(display = "HAWK error: {}", _0)]
     HawkError(#[fail(cause)] SyncFailure<hawk::Error>),
 
     #[fail(display = "Malformed URL error: {}", _0)]
-    MalformedUrl(#[fail(cause)] reqwest::UrlError),
+    MalformedUrl(#[fail(cause)] ::ffi_support::http_facade::UrlError),
 
     #[fail(display = "Malformed header error: {}", _0)]
-    MalformedHeader(#[fail(cause)] reqwest::header::InvalidHeaderValue),
+    MalformedHeader(#[fail(cause)] ::ffi_support::http_facade::header::InvalidHeaderValue),
 }
 
 macro_rules! impl_from_error {
@@ -173,9 +173,9 @@ impl_from_error! {
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (BadCleartextUtf8, ::std::string::FromUtf8Error),
-    (RequestError, ::reqwest::Error),
-    (MalformedUrl, ::reqwest::UrlError),
-    (MalformedHeader, ::reqwest::header::InvalidHeaderValue),
+    (RequestError, ::ffi_support::http_facade::Error),
+    (MalformedUrl, ::ffi_support::http_facade::UrlError),
+    (MalformedHeader, ::ffi_support::http_facade::header::InvalidHeaderValue),
     // A bit dubious, since we only want this to happen inside `synchronize`
     (StoreError, ::failure::Error)
 }
