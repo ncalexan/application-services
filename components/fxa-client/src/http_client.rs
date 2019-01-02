@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, errors::*};
-use ffi_support::http::{self, header, Client as ReqwestClient, Method, Request, Response, StatusCode};
+use ffi_support::http_facade::{self, RequestBuilder, header, IntoUrl, Method, Request, Response, StatusCode};
 use serde_derive::*;
 use serde_json::json;
 #[cfg(feature = "browserid")]
@@ -80,21 +80,17 @@ impl<'a> Client<'a> {
           "email": email,
           "authPW": auth_pwd
         });
-        let client = ReqwestClient::new();
-        let request = client
-            .request(Method::POST, url)
+        let builder = RequestBuilder::post(url)
             .query(&[("keys", get_keys)])
-            .body(parameters.to_string())
-            .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+            .body(parameters.to_string());
+        Client::make_request(builder)?.json().map_err(|e| e.into())
     }
 
     #[cfg(feature = "browserid")]
     pub fn account_status(&self, uid: &String) -> Result<AccountStatusResponse> {
         let url = self.config.auth_url_path("v1/account/status")?;
-        let client = ReqwestClient::new();
-        let request = client.get(url).query(&[("uid", uid)]).build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        let builder = RequestBuilder::get(url).query(&[("uid", uid)]);
+        Client::make_request(builder)?.json().map_err(|e| e.into())
     }
 
     #[cfg(feature = "browserid")]
@@ -155,16 +151,14 @@ impl<'a> Client<'a> {
         etag: Option<String>,
     ) -> Result<Option<ResponseAndETag<ProfileResponse>>> {
         let url = self.config.userinfo_endpoint()?;
-        let client = ReqwestClient::new();
-        let mut builder = client.request(Method::GET, url).header(
+        let mut builder = RequestBuilder::get(url).header(
             header::AUTHORIZATION,
             format!("Bearer {}", profile_access_token),
         );
         if let Some(etag) = etag {
             builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
         }
-        let request = builder.build()?;
-        let mut resp = Client::make_request(request)?;
+        let mut resp = Client::make_request(builder)?;
         if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
@@ -232,13 +226,10 @@ impl<'a> Client<'a> {
 
     fn make_oauth_token_request(&self, body: serde_json::Value) -> Result<OAuthTokenResponse> {
         let url = self.config.token_endpoint()?;
-        let client = ReqwestClient::new();
-        let request = client
-            .request(Method::POST, url)
+        let builder = RequestBuilder::post(url)
             .header(header::CONTENT_TYPE, "application/json")
-            .body(body.to_string())
-            .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+            .body(body.to_string());
+        Client::make_request(builder)?.json().map_err(|e| e.into())
     }
 
     pub fn destroy_oauth_token(&self, token: &str) -> Result<()> {
@@ -246,13 +237,10 @@ impl<'a> Client<'a> {
             "token": token,
         });
         let url = self.config.oauth_url_path("v1/destroy")?;
-        let client = ReqwestClient::new();
-        let request = client
-            .request(Method::POST, url)
+        let builder = RequestBuilder::post(url)
             .header(header::CONTENT_TYPE, "application/json")
-            .body(body.to_string())
-            .build()?;
-        Client::make_request(request)?;
+            .body(body.to_string());
+        Client::make_request(builder)?;
         Ok(())
     }
 
@@ -302,15 +290,14 @@ impl<'a> Client<'a> {
         out.to_vec()
     }
 
-    fn make_request(request: Request) -> Result<Response> {
-        let client = ReqwestClient::new();
-        let mut resp = client.execute(request)?;
+    fn make_request(builder: RequestBuilder) -> Result<Response> {
+        let mut resp = builder.send()?; // XXX: insert abstraction here.
         let status = resp.status();
 
         if status.is_success() || status == StatusCode::NOT_MODIFIED {
             Ok(resp)
         } else {
-            let json: std::result::Result<serde_json::Value, ffi_support::http::Error> = resp.json();
+            let json: std::result::Result<serde_json::Value, ffi_support::http_facade::Error> = resp.json();
             match json {
                 Ok(json) => Err(ErrorKind::RemoteError {
                     code: json["code"].as_u64().unwrap_or(0),

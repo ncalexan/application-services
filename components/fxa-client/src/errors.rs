@@ -153,16 +153,16 @@ pub enum ErrorKind {
     UTF8DecodeError(#[fail(cause)] string::FromUtf8Error),
 
     #[fail(display = "Network error: {}", _0)]
-    RequestError(#[fail(cause)] ffi_support::http::Error),
+    RequestError(#[fail(cause)] ffi_support::http_facade::Error),
 
     #[fail(display = "Malformed URL error: {}", _0)]
-    MalformedUrl(#[fail(cause)] ffi_support::http::UrlError),
+    MalformedUrl(#[fail(cause)] ffi_support::http_facade::UrlError),
 
     #[fail(display = "Header parsing error: {}", _0)]
-    HeaderParseError(#[fail(cause)] ffi_support::http::header::ToStrError),
+    HeaderParseError(#[fail(cause)] ffi_support::http_facade::header::ToStrError),
 
     #[fail(display = "Malformed header error: {}", _0)]
-    MalformedHeader(#[fail(cause)] ffi_support::http::header::InvalidHeaderValue),
+    MalformedHeader(#[fail(cause)] ffi_support::http_facade::header::InvalidHeaderValue),
 
     #[cfg(feature = "browserid")]
     #[fail(display = "HAWK error: {}", _0)]
@@ -192,10 +192,10 @@ impl_from_error! {
     (Base64Decode, ::base64::DecodeError),
     (JsonError, ::serde_json::Error),
     (UTF8DecodeError, ::std::string::FromUtf8Error),
-    (RequestError, ::ffi_support::http::Error),
-    (MalformedUrl, ::ffi_support::http::UrlError),
-    (HeaderParseError, ::ffi_support::http::header::ToStrError),
-    (MalformedHeader, ::ffi_support::http::header::InvalidHeaderValue)
+    (RequestError, ::ffi_support::http_facade::Error),
+    (MalformedUrl, ::ffi_support::http_facade::UrlError),
+    (HeaderParseError, ::ffi_support::http_facade::header::ToStrError),
+    (MalformedHeader, ::ffi_support::http_facade::header::InvalidHeaderValue)
 }
 
 #[cfg(feature = "browserid")]

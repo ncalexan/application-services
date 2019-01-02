@@ -112,11 +112,11 @@ impl Config {
 
         let config_url =
             Url::parse(&self.content_url)?.join(".well-known/fxa-client-configuration")?;
-        let resp: ClientConfigurationResponse = ffi_support::http::get(config_url)?.json()?;
+        let resp: ClientConfigurationResponse = ffi_support::http_facade::get(config_url)?.json()?;
 
         let openid_config_url =
             Url::parse(&self.content_url)?.join(".well-known/openid-configuration")?;
-        let openid_resp: OpenIdConfigurationResponse = ffi_support::http::get(openid_config_url)?.json()?;
+        let openid_resp: OpenIdConfigurationResponse = ffi_support::http_facade::get(openid_config_url)?.json()?;
 
         let remote_config = RemoteConfig {
             auth_url: format!("{}/", resp.auth_server_base_url),
