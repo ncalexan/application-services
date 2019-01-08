@@ -3,7 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use crate::{config::Config, errors::*};
-use ffi_support::http_facade::{self, RequestBuilder, header, IntoUrl, Method, Request, Response, StatusCode};
+use ffi_support::http_facade::{self, RequestBuilder, header, IntoUrl, Method, Request, Response, StatusCode, HttpClient, HttpClientBuilder};
 use serde_derive::*;
 use serde_json::json;
 #[cfg(feature = "browserid")]
@@ -30,11 +30,13 @@ const SIGN_DURATION_MS: u64 = 24 * 60 * 60 * 1000;
 
 pub struct Client<'a> {
     config: &'a Config,
+    http_client: HttpClient,
 }
 
 impl<'a> Client<'a> {
-    pub fn new(config: &'a Config) -> Client<'a> {
-        Client { config }
+    pub fn new(config: &'a Config) -> Result<Client<'a>> {
+        Client { config,
+                 http_client: HttpClientBuilder::new().build()? }
     }
 
     #[cfg(feature = "browserid")]
@@ -158,7 +160,7 @@ impl<'a> Client<'a> {
         if let Some(etag) = etag {
             builder = builder.header(header::IF_NONE_MATCH, format!("\"{}\"", etag));
         }
-        let mut resp = Client::make_request(builder)?;
+        let mut resp = self.make_request(builder)?;
         if resp.status() == StatusCode::NOT_MODIFIED {
             return Ok(None);
         }
@@ -194,7 +196,7 @@ impl<'a> Client<'a> {
         let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        self.make_request(request)?.json().map_err(|e| e.into())
     }
 
     pub fn oauth_token_with_code(
@@ -229,7 +231,7 @@ impl<'a> Client<'a> {
         let builder = RequestBuilder::post(url)
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.to_string());
-        Client::make_request(builder)?.json().map_err(|e| e.into())
+        self.make_request(builder)?.json().map_err(|e| e.into())
     }
 
     pub fn destroy_oauth_token(&self, token: &str) -> Result<()> {
@@ -240,7 +242,7 @@ impl<'a> Client<'a> {
         let builder = RequestBuilder::post(url)
             .header(header::CONTENT_TYPE, "application/json")
             .body(body.to_string());
-        Client::make_request(builder)?;
+        self.make_request(builder)?;
         Ok(())
     }
 
@@ -256,7 +258,7 @@ impl<'a> Client<'a> {
         let request = HAWKRequestBuilder::new(Method::POST, url, &key)
             .body(parameters)
             .build()?;
-        Client::make_request(request)?.json().map_err(|e| e.into())
+        self.make_request(request)?.json().map_err(|e| e.into())
     }
 
     #[cfg(feature = "browserid")]
@@ -290,8 +292,9 @@ impl<'a> Client<'a> {
         out.to_vec()
     }
 
-    fn make_request(builder: RequestBuilder) -> Result<Response> {
-        let mut resp = builder.send()?; // XXX: insert abstraction here.
+    fn make_request(&self, builder: RequestBuilder) -> Result<Response> {
+        let request = builder.build()?;
+        let mut resp = self.http_client.fetch(request)?;
         let status = resp.status();
 
         if status.is_success() || status == StatusCode::NOT_MODIFIED {

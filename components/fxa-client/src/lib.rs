@@ -211,7 +211,7 @@ impl FirefoxAccount {
                 return Ok(oauth_info.clone());
             }
         }
-        let client = Client::new(&self.state.config);
+        let client = Client::new(&self.state.config)?;
         let resp = match self.state.refresh_token {
             Some(ref refresh_token) => match refresh_token.scopes.contains(scope) {
                 true => client.oauth_token_with_refresh_token(&refresh_token.token, &[scope])?,

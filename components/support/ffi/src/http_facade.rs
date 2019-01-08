@@ -6,13 +6,12 @@ use std::fmt;
 use std::time::Duration;
 
 pub use reqwest::{get, header, Error, IntoUrl, Method, Request, Response, StatusCode, UrlError};
-pub use reqwest::header::AUTHORIZATION;
 use http::{HttpTryFrom};
 
 use reqwest::{Body, Client};
 use serde::{Serialize};
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct HttpClient {
     inner: reqwest::Client,
 }
@@ -386,15 +385,15 @@ impl RequestBuilder {
         self.inner.build()
     }
 
-    /// Constructs the Request and sends it the target URL, returning a Response.
-    ///
-    /// # Errors
-    ///
-    /// This method fails if there was an error while sending request,
-    /// redirect loop was detected or redirect limit was exhausted.
-    pub fn send(self) -> ::reqwest::Result<Response> {
-        self.inner.send()
-    }
+    // /// Constructs the Request and sends it the target URL, returning a Response.
+    // ///
+    // /// # Errors
+    // ///
+    // /// This method fails if there was an error while sending request,
+    // /// redirect loop was detected or redirect limit was exhausted.
+    // pub fn send(self) -> ::reqwest::Result<Response> {
+    //     self.inner.send()
+    // }
 
     // /// Attempts to clone the `RequestBuilder`.
     // ///
