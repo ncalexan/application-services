@@ -1,0 +1,6 @@
+{
+  "promo": {
+    "$type": "Banner",
+    "dismissable": false
+  }
+}

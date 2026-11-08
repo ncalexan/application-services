@@ -1,0 +1,1 @@
+Validation Error at features/home.promo: Invalid value "Banner" for type Promo

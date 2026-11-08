@@ -1,0 +1,6 @@
+{
+  "promo": {
+    "dismissable": true,
+    "title": "From the experiment"
+  }
+}

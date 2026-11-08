@@ -43,7 +43,10 @@ impl<'a> ValuesFinder<'a> {
             TypeRef::Int => &["0"],
             TypeRef::String | TypeRef::BundleText | TypeRef::BundleImage => &["\"\""],
             TypeRef::List(_) => &["[]"],
-            TypeRef::Object(_) | TypeRef::EnumMap(_, _) | TypeRef::StringMap(_) => &["{}"],
+            TypeRef::Object(_)
+            | TypeRef::Coproduct(_)
+            | TypeRef::EnumMap(_, _)
+            | TypeRef::StringMap(_) => &["{}"],
 
             _ => &[],
         };

@@ -53,6 +53,12 @@ impl<'a> SchemaHasher<'a> {
             }
         }
 
+        for (coproduct_nm, coproduct_def) in self.coproduct_defs {
+            if types.contains(&TypeRef::Coproduct(coproduct_nm.clone())) {
+                coproduct_def.schema_hash(&mut hasher);
+            }
+        }
+
         hasher.finish()
     }
 
@@ -112,6 +118,16 @@ impl SchemaHash for ObjectDef {
 impl SchemaHash for EnumDef {
     fn schema_hash<H: Hasher>(&self, state: &mut H) {
         self.variants.schema_hash(state);
+    }
+}
+
+impl SchemaHash for CoproductDef {
+    fn schema_hash<H: Hasher>(&self, state: &mut H) {
+        // The variants are the tags in the JSON, so their names are part of the schema.
+        // They are in sorted order, so the hash is stable.
+        self.discriminant.hash(state);
+        self.default_variant.hash(state);
+        self.variants.hash(state);
     }
 }
 

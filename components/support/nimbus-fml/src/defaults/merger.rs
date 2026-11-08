@@ -12,8 +12,6 @@ use crate::intermediate_representation::{CoproductDef, FeatureDef, ObjectDef, Pr
 
 pub struct DefaultsMerger<'object> {
     objects: &'object BTreeMap<String, ObjectDef>,
-    // Used when the defaults of coproducts are merged.
-    #[allow(dead_code)]
     coproducts: &'object BTreeMap<String, CoproductDef>,
 
     supported_channels: Vec<String>,
@@ -54,13 +52,20 @@ impl<'object> DefaultsMerger<'object> {
         self.collect_props_defaults(&feature.props)
     }
 
-    fn collect_object_defaults(&self, name: &str) -> serde_json::Value {
-        let obj = self
-            .objects
+    fn get_object(&self, name: &str) -> &ObjectDef {
+        self.objects
             .get(name)
-            .unwrap_or_else(|| panic!("Object named {} is not defined", name));
+            .unwrap_or_else(|| panic!("Object named {} is not defined", name))
+    }
 
-        self.collect_props_defaults(&obj.props)
+    fn get_coproduct(&self, name: &str) -> &CoproductDef {
+        self.coproducts
+            .get(name)
+            .unwrap_or_else(|| panic!("Coproduct named {} is not defined", name))
+    }
+
+    fn collect_object_defaults(&self, name: &str) -> serde_json::Value {
+        self.collect_props_defaults(&self.get_object(name).props)
     }
 
     fn collect_props_defaults(&self, props: &Vec<PropDef>) -> Value {
@@ -73,7 +78,19 @@ impl<'object> DefaultsMerger<'object> {
 
     fn collect_prop_defaults(&self, typ: &TypeRef, v: &serde_json::Value) -> serde_json::Value {
         match typ {
-            TypeRef::Object(name) => merge_two_defaults(&self.collect_object_defaults(name), v),
+            TypeRef::Object(name) => self.merge_values(typ, &self.collect_object_defaults(name), v),
+            TypeRef::Coproduct(name) => {
+                let coproduct = self.get_coproduct(name);
+                match v.as_object().and_then(|map| coproduct.tag(map)) {
+                    Some(tag) if coproduct.has_variant(tag) => self.merge_values(
+                        &TypeRef::Object(tag.to_string()),
+                        &self.collect_object_defaults(tag),
+                        v,
+                    ),
+                    // The tag is not valid: the DefaultsValidator reports this.
+                    _ => v.clone(),
+                }
+            }
             TypeRef::EnumMap(_, v_type) => self.collect_map_defaults(v_type, v),
             TypeRef::StringMap(v_type) => self.collect_map_defaults(v_type, v),
             _ => v.clone(),
@@ -164,8 +181,9 @@ impl<'object> DefaultsMerger<'object> {
         defaults: &Option<Vec<DefaultBlock>>,
     ) -> Result<(), FMLError> {
         let variable_defaults = self.collect_feature_defaults(feature_def);
-        let defaults_to_merge = self.channel_specific_defaults(defaults)?;
-        let merged = merge_two_defaults(&variable_defaults, &defaults_to_merge);
+        let defaults_to_merge = self.channel_specific_defaults(&feature_def.props, defaults)?;
+        let merged =
+            self.merge_props_values(&feature_def.props, &variable_defaults, &defaults_to_merge);
 
         self.overwrite_defaults(feature_def, &merged);
         Ok(())
@@ -191,7 +209,11 @@ impl<'object> DefaultsMerger<'object> {
         }
     }
 
-    fn channel_specific_defaults(&self, defaults: &Option<Vec<DefaultBlock>>) -> Result<Value> {
+    fn channel_specific_defaults(
+        &self,
+        props: &[PropDef],
+        defaults: &Option<Vec<DefaultBlock>>,
+    ) -> Result<Value> {
         let supported_channels = self.supported_channels.as_slice();
         let channel = &self.channel;
         if let Some(channel) = channel
@@ -206,8 +228,9 @@ impl<'object> DefaultsMerger<'object> {
         if let Some(defaults) = defaults {
             // No channel is represented by an unlikely string.
             let no_channel = "NO CHANNEL SPECIFIED".to_string();
+            let merge = |old: &Value, new: &Value| self.merge_props_values(props, old, new);
             let merged_defaults =
-                collect_channel_defaults(defaults, supported_channels, &no_channel)?;
+                collect_channel_defaults_with(defaults, supported_channels, &no_channel, &merge)?;
             let channel = self.channel.as_ref().unwrap_or(&no_channel);
             let merged = merged_defaults[channel].clone();
             Ok(merged)
@@ -220,7 +243,78 @@ impl<'object> DefaultsMerger<'object> {
     /// with the passed value.
     pub(crate) fn merge_feature_config(&self, feature_def: &FeatureDef, value: &Value) -> Value {
         let defaults = self.collect_feature_defaults(feature_def);
-        merge_two_defaults(&defaults, value)
+        self.merge_props_values(&feature_def.props, &defaults, value)
+    }
+
+    /// Merges `new` on top of `old`, where both are JSON objects with the given `props`.
+    ///
+    /// Keys that are not in `props` are merged with [`merge_two_defaults`]: the
+    /// DefaultsValidator reports them.
+    fn merge_props_values(&self, props: &[PropDef], old: &Value, new: &Value) -> Value {
+        let (Value::Object(old_map), Value::Object(new_map)) = (old, new) else {
+            return new.clone();
+        };
+        let mut merged = old_map.clone();
+        for (key, new_value) in new_map {
+            let value = match (props.iter().find(|p| &p.name == key), old_map.get(key)) {
+                (Some(prop), Some(old_value)) => self.merge_values(&prop.typ, old_value, new_value),
+                (None, Some(old_value)) => merge_two_defaults(old_value, new_value),
+                (_, None) => new_value.clone(),
+            };
+            merged.insert(key.clone(), value);
+        }
+        Value::Object(merged)
+    }
+
+    /// Merges `new` on top of `old`, where both are values of the type `typ`.
+    ///
+    /// For all types except coproducts, this gives the same result as [`merge_two_defaults`].
+    ///
+    /// For a coproduct, if `old` and `new` have the same tag, then the two values are merged as
+    /// objects of that variant. If the tags are different, then the result starts from the
+    /// defaults of the new variant's object, and `old` is discarded.
+    fn merge_values(&self, typ: &TypeRef, old: &Value, new: &Value) -> Value {
+        match (typ, old, new) {
+            (TypeRef::Object(name), Value::Object(_), Value::Object(_)) => {
+                self.merge_props_values(&self.get_object(name).props, old, new)
+            }
+            (TypeRef::Coproduct(name), Value::Object(old_map), Value::Object(new_map)) => {
+                let coproduct = self.get_coproduct(name);
+                match (coproduct.tag(old_map), coproduct.tag(new_map)) {
+                    (Some(old_tag), Some(new_tag))
+                        if old_tag == new_tag && coproduct.has_variant(new_tag) =>
+                    {
+                        self.merge_props_values(&self.get_object(new_tag).props, old, new)
+                    }
+                    (_, Some(new_tag)) if coproduct.has_variant(new_tag) => {
+                        let object = self.get_object(new_tag);
+                        let base = self.collect_props_defaults(&object.props);
+                        self.merge_props_values(&object.props, &base, new)
+                    }
+                    // The tag is not valid: the DefaultsValidator reports this.
+                    _ => new.clone(),
+                }
+            }
+            (
+                TypeRef::StringMap(value_type) | TypeRef::EnumMap(_, value_type),
+                Value::Object(old_map),
+                Value::Object(new_map),
+            ) => {
+                let mut merged = old_map.clone();
+                for (key, new_value) in new_map {
+                    let value = match old_map.get(key) {
+                        Some(old_value) => self.merge_values(value_type, old_value, new_value),
+                        None => new_value.clone(),
+                    };
+                    merged.insert(key.clone(), value);
+                }
+                Value::Object(merged)
+            }
+            (TypeRef::Option(inner), _, _) => self.merge_values(inner, old, new),
+            // Values that are not objects are not merged: the new value replaces the old one.
+            // Objects with an unexpected type are merged as before: the DefaultsValidator reports them.
+            _ => merge_two_defaults(old, new),
+        }
     }
 }
 
@@ -277,10 +371,21 @@ fn merge_two_defaults(
 /// - The `defaults` argument is not an array
 /// - There is a `channel` in the `defaults` argument that doesn't
 ///   exist in the `channels` argument
+#[cfg(test)]
 fn collect_channel_defaults(
     defaults: &[DefaultBlock],
     channels: &[String],
     no_channel: &str,
+) -> Result<HashMap<String, serde_json::Value>> {
+    collect_channel_defaults_with(defaults, channels, no_channel, &merge_two_defaults)
+}
+
+/// Like [`collect_channel_defaults`], but with a function to merge one default on top of another.
+fn collect_channel_defaults_with(
+    defaults: &[DefaultBlock],
+    channels: &[String],
+    no_channel: &str,
+    merge: &dyn Fn(&Value, &Value) -> Value,
 ) -> Result<HashMap<String, serde_json::Value>> {
     // We initialize the map to have an entry for every valid channel
     let mut channel_map = channels
@@ -294,7 +399,7 @@ fn collect_channel_defaults(
                 if let Some(old_default) = channel_map.get(channel).cloned() {
                     if default.targeting.is_none() {
                         // TODO: we currently ignore any defaults with targeting involved
-                        let merged = merge_two_defaults(&old_default, &default.value);
+                        let merged = merge(&old_default, &default.value);
                         channel_map.insert(channel.clone(), merged);
                     }
                 } else {
@@ -308,9 +413,7 @@ fn collect_channel_defaults(
         } else {
             channel_map = channel_map
                 .into_iter()
-                .map(|(channel, old_default)| {
-                    (channel, merge_two_defaults(&old_default, &default.value))
-                })
+                .map(|(channel, old_default)| (channel, merge(&old_default, &default.value)))
                 .collect();
         }
     }

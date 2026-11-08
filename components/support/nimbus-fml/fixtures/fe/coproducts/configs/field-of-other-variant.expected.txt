@@ -1,0 +1,1 @@
+Validation Error at features/home.promo#Banner: Invalid property "slides"; did you mean "dismissable" or "title"?

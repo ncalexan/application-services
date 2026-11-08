@@ -159,6 +159,7 @@ impl ErrorConverter<'_> {
                 .map(ToOwned::to_owned)
                 .collect(),
             ErrorKind::InvalidNestedValue { .. } => Default::default(),
+            ErrorKind::InvalidCoproductTag { valid, .. } => valid.clone(),
         };
 
         // We don't want to suggest any tokens that the user has already used correctly, so

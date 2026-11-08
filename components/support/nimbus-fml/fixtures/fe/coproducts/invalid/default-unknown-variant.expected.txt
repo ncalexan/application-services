@@ -1,0 +1,1 @@
+Validation Error at features/home.promo#Promo.$type: Invalid variant "Video" for coproduct Promo; did you mean "Banner" or "Carousel"?

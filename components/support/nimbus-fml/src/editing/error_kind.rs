@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 use serde_json::{Map, Value};
 
-use crate::intermediate_representation::{PropDef, TypeRef};
+use crate::intermediate_representation::{CoproductDef, PropDef, TypeRef};
 
 pub(crate) enum ErrorKind {
     InvalidKey {
@@ -26,6 +26,10 @@ pub(crate) enum ErrorKind {
     },
     TypeMismatch {
         value_type: TypeRef,
+    },
+    InvalidCoproductTag {
+        coproduct: String,
+        valid: BTreeSet<String>,
     },
 }
 
@@ -65,6 +69,13 @@ impl ErrorKind {
             value_type: type_ref.clone(),
         }
     }
+
+    pub(crate) fn invalid_coproduct_tag(coproduct: &CoproductDef) -> Self {
+        Self::InvalidCoproductTag {
+            coproduct: coproduct.name(),
+            valid: coproduct.variants().iter().cloned().collect(),
+        }
+    }
 }
 
 impl ErrorKind {
@@ -83,6 +94,9 @@ impl ErrorKind {
                 format!("A valid value for {prop_name} of type {t} is missing")
             }
             Self::TypeMismatch { value_type: t } => format!("Invalid value {token} for type {t}"),
+            Self::InvalidCoproductTag { coproduct, .. } => {
+                format!("Invalid variant {token} for coproduct {coproduct}")
+            }
         }
     }
 }

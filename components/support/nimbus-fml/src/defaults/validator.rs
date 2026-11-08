@@ -15,8 +15,6 @@ use crate::intermediate_representation::{EnumDef, ObjectDef};
 pub(crate) struct DefaultsValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
-    // Used when the defaults of coproducts are validated.
-    #[allow(dead_code)]
     coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 
     lax_gecko_pref_validation: bool,
@@ -162,6 +160,22 @@ impl<'a> DefaultsValidator<'a> {
         self.object_defs.get(nm)
     }
 
+    fn get_coproduct(&self, nm: &str) -> &CoproductDef {
+        self.coproduct_defs
+            .get(nm)
+            // If this is thrown, there's a problem in validate_type_ref.
+            .unwrap_or_else(|| unreachable!("Coproduct {nm} is not defined in the manifest"))
+    }
+
+    /// Returns the variant of a coproduct value, if its tag is valid.
+    fn coproduct_variant<'v>(
+        &self,
+        coproduct: &'v CoproductDef,
+        map: &'v Map<String, Value>,
+    ) -> Option<&'v str> {
+        coproduct.tag(map).filter(|tag| coproduct.has_variant(tag))
+    }
+
     fn validate_feature_enum_maps(&self, feature_def: &FeatureDef) -> Result<()> {
         let path = ErrorPath::feature(&feature_def.name);
         for prop in &feature_def.props {
@@ -259,6 +273,15 @@ impl<'a> DefaultsValidator<'a> {
                     if let Some(value) = map.get(&prop.name) {
                         self.validate_enum_maps(&path.property(&prop.name), &prop.typ, value)?
                     }
+                }
+            }
+
+            (TypeRef::Coproduct(coproduct_name), Value::Object(map)) => {
+                // The discriminant is not a property of the variant's object, so the object
+                // ignores it. An invalid tag is reported by `validate_types`.
+                let coproduct = self.get_coproduct(coproduct_name);
+                if let Some(variant) = self.coproduct_variant(coproduct, map) {
+                    self.validate_enum_maps(path, &TypeRef::Object(variant.to_string()), default)?
                 }
             }
 
@@ -364,6 +387,27 @@ impl<'a> DefaultsValidator<'a> {
                         unreachable!("Object {obj_name} is not defined in the manifest")
                     });
                 self.validate_props_types(&path.object_value(obj_name), &obj_def.props, map, errors);
+            }
+            (TypeRef::Coproduct(coproduct_name), Value::Object(map)) => {
+                let coproduct = self.get_coproduct(coproduct_name);
+                let discriminant = coproduct.discriminant();
+                let Some(variant) = self.coproduct_variant(coproduct, map) else {
+                    let tag_path = path.object_value(coproduct_name).property(discriminant);
+                    let tag_value = map.get(discriminant).cloned().unwrap_or_default();
+                    let tag_path = match &tag_value {
+                        Value::String(s) => tag_path.final_error_quoted(s),
+                        _ => tag_path.final_error_value(&tag_value),
+                    };
+                    errors.push(FeatureValidationError {
+                        path: tag_path,
+                        kind: ErrorKind::invalid_coproduct_tag(coproduct),
+                    });
+                    return;
+                };
+                // The discriminant is not a property of the variant's object.
+                let mut map = map.clone();
+                map.remove(discriminant);
+                self.validate_types(path, &TypeRef::Object(variant.to_string()), &Value::Object(map), errors);
             }
             _ => {
                 let path = path.final_error_value(default);
@@ -552,6 +596,21 @@ impl<'a> DefaultsValidator<'a> {
                             });
                         }
                     }
+                }
+            }
+            (TypeRef::Coproduct(coproduct_name), Value::Object(map)) => {
+                // An invalid tag is reported by `validate_types`.
+                let coproduct = self.get_coproduct(coproduct_name);
+                if let Some(variant) = self.coproduct_variant(coproduct, map) {
+                    self.validate_string_aliases(
+                        path,
+                        &TypeRef::Object(variant.to_string()),
+                        value,
+                        definitions,
+                        feature_value,
+                        skip,
+                        errors,
+                    );
                 }
             }
             _ => {}

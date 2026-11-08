@@ -1,0 +1,34 @@
+{
+  "home": {
+    "optional-promo": {
+      "$type": "Carousel"
+    },
+    "page": {
+      "name": "page",
+      "promo": {
+        "autoplay": false,
+        "slides": [
+          "page"
+        ],
+        "$type": "Carousel"
+      }
+    },
+    "promo": {
+      "autoplay": false,
+      "slides": [
+        "beta"
+      ],
+      "$type": "Carousel"
+    },
+    "promos": {
+      "first": {
+        "autoplay": false,
+        "slides": [],
+        "$type": "Carousel"
+      },
+      "second": {
+        "title": "Second"
+      }
+    }
+  }
+}

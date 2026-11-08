@@ -1,0 +1,25 @@
+{
+  "home": {
+    "optional-promo": null,
+    "page": {
+      "name": "page",
+      "promo": {
+        "autoplay": false,
+        "slides": [
+          "page"
+        ],
+        "$type": "Carousel"
+      }
+    },
+    "promo": {
+      "dismissable": true,
+      "title": "Hello"
+    },
+    "promos": {
+      "first": {
+        "dismissable": true,
+        "title": "First"
+      }
+    }
+  }
+}

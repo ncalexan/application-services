@@ -55,6 +55,7 @@
             "Coproduct": "Promo"
           },
           "default": {
+            "slides": [],
             "$kind": "Carousel"
           }
         }

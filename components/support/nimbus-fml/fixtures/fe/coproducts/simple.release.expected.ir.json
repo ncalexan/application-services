@@ -67,6 +67,7 @@
             "Coproduct": "Promo"
           },
           "default": {
+            "dismissable": true,
             "title": "Welcome"
           }
         }

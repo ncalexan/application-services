@@ -1,0 +1,1 @@
+Validation Error at features/home.promo#Carousel.autoplay: Invalid value "yes" for type Boolean

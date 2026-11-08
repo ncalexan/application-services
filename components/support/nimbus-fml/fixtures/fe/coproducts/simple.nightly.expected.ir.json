@@ -67,12 +67,12 @@
             "Coproduct": "Promo"
           },
           "default": {
-            "title": "Welcome",
-            "$type": "Carousel",
+            "autoplay": false,
             "slides": [
               "one",
               "two"
-            ]
+            ],
+            "$type": "Carousel"
           }
         }
       ],

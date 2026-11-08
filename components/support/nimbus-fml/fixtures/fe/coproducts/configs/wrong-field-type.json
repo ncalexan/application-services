@@ -1,0 +1,6 @@
+{
+  "promo": {
+    "$type": "Carousel",
+    "autoplay": "yes"
+  }
+}

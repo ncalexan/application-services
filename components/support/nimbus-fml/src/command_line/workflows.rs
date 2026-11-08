@@ -1122,8 +1122,6 @@ mod test {
     /// Validates each `*.json` feature configuration in `dir` for `feature` in `manifest` for
     /// `channel`, and compares the result with the contents of the `*.expected.txt` file with the
     /// same name. The result is the merged value of the feature, or the error.
-    // Used by a test in a later change.
-    #[allow(dead_code)]
     fn validate_configs_and_compare_with_expected(
         manifest: &str,
         channel: &str,
@@ -1232,8 +1230,27 @@ mod test {
     }
 
     #[test]
-    fn test_coproduct_schema_errors() -> Result<()> {
+    fn test_coproduct_manifest_errors() -> Result<()> {
         load_invalid_and_compare_with_expected("fixtures/fe/coproducts/invalid", "release")
+    }
+
+    #[test]
+    fn test_coproduct_default_merging() -> Result<()> {
+        load_defaults_and_compare_with_expected(
+            "fixtures/fe/coproducts/merging.fml.yaml",
+            &["release", "beta", "nightly"],
+            "fixtures/fe/coproducts/merging",
+        )
+    }
+
+    #[test]
+    fn test_coproduct_feature_configs() -> Result<()> {
+        validate_configs_and_compare_with_expected(
+            "fixtures/fe/coproducts/simple.fml.yaml",
+            "nightly",
+            "home",
+            "fixtures/fe/coproducts/configs",
+        )
     }
 }
 

@@ -1,0 +1,11 @@
+{
+  "promo": {
+    "autoplay": false,
+    "slides": [
+      "a",
+      "b",
+      "c"
+    ],
+    "$type": "Carousel"
+  }
+}

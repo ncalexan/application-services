@@ -1,0 +1,25 @@
+{
+  "home": {
+    "optional-promo": null,
+    "page": {
+      "name": "page",
+      "promo": {
+        "dismissable": true,
+        "title": "Banner in the page"
+      }
+    },
+    "promo": {
+      "autoplay": true,
+      "slides": [
+        "nightly"
+      ],
+      "$type": "Carousel"
+    },
+    "promos": {
+      "first": {
+        "dismissable": true,
+        "title": "First"
+      }
+    }
+  }
+}

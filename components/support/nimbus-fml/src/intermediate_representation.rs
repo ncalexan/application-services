@@ -793,7 +793,6 @@ impl CoproductDef {
     /// If the discriminant key is absent, this is the default variant.
     /// If the value of the discriminant key is not a string, this is `None`.
     /// This does not check that the tag is one of the variants.
-    #[allow(dead_code)]
     pub(crate) fn tag<'a>(&'a self, map: &'a Map<String, Value>) -> Option<&'a str> {
         match map.get(&self.discriminant) {
             None => Some(&self.default_variant),
