@@ -4,6 +4,9 @@ about:
   kotlin:
     class: .nimbus.MyNimbus
     package: com.example.app
+  swift:
+    class: MyNimbus
+    module: Client
 channels:
   - release
   - beta

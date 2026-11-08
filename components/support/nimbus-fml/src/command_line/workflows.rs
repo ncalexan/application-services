@@ -1260,6 +1260,22 @@ mod test {
     }
 
     #[test]
+    fn test_coproduct_swift() -> Result<()> {
+        generate_and_compare_with_expected(
+            "fixtures/fe/coproducts/simple.fml.yaml",
+            "release",
+            TargetLanguage::Swift,
+            "fixtures/fe/coproducts/simple.expected.swift",
+        )?;
+        generate_and_compare_with_expected(
+            "fixtures/fe/coproducts/merging.fml.yaml",
+            "nightly",
+            TargetLanguage::Swift,
+            "fixtures/fe/coproducts/merging.nightly.expected.swift",
+        )
+    }
+
+    #[test]
     fn test_coproduct_feature_configs() -> Result<()> {
         validate_configs_and_compare_with_expected(
             "fixtures/fe/coproducts/simple.fml.yaml",

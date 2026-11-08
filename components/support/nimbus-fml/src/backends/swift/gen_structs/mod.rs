@@ -11,6 +11,7 @@ use crate::intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder
 
 mod bundled;
 mod common;
+mod coproduct;
 mod enum_;
 mod feature;
 mod filters;
@@ -51,6 +52,10 @@ impl<'a> FeatureManifestDeclaration<'a> {
             }))
             .chain(fm.iter_object_defs().map(|inner| {
                 Box::new(object::ObjectCodeDeclaration::new(fm, inner)) as Box<dyn CodeDeclaration>
+            }))
+            .chain(fm.iter_coproduct_defs().map(|inner| {
+                Box::new(coproduct::CoproductCodeDeclaration::new(fm, inner))
+                    as Box<dyn CodeDeclaration>
             }))
             .chain(fm.iter_imported_files().iter().map(|inner| {
                 Box::new(imports::ImportedModuleInitialization::new(inner))
@@ -129,9 +134,7 @@ impl ConcreteCodeOracle {
 
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
-            TypeIdentifier::Coproduct(_) => {
-                unimplemented!("Coproducts are not yet supported in Swift")
-            }
+            TypeIdentifier::Coproduct(id) => Box::new(coproduct::CoproductCodeType::new(id)),
 
             TypeIdentifier::Option(ref inner) => Box::new(structural::OptionalCodeType::new(inner)),
             TypeIdentifier::List(ref inner) => Box::new(structural::ListCodeType::new(inner)),
