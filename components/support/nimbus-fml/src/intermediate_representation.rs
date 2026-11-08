@@ -771,7 +771,6 @@ impl CoproductDef {
     pub(crate) fn name(&self) -> String {
         self.name.clone()
     }
-    #[allow(dead_code)]
     pub(crate) fn doc(&self) -> String {
         self.doc.clone()
     }

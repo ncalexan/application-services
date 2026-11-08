@@ -1244,6 +1244,22 @@ mod test {
     }
 
     #[test]
+    fn test_coproduct_kotlin() -> Result<()> {
+        generate_and_compare_with_expected(
+            "fixtures/fe/coproducts/simple.fml.yaml",
+            "release",
+            TargetLanguage::Kotlin,
+            "fixtures/fe/coproducts/simple.expected.kt",
+        )?;
+        generate_and_compare_with_expected(
+            "fixtures/fe/coproducts/merging.fml.yaml",
+            "nightly",
+            TargetLanguage::Kotlin,
+            "fixtures/fe/coproducts/merging.nightly.expected.kt",
+        )
+    }
+
+    #[test]
     fn test_coproduct_feature_configs() -> Result<()> {
         validate_configs_and_compare_with_expected(
             "fixtures/fe/coproducts/simple.fml.yaml",

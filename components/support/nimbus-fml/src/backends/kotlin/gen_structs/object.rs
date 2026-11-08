@@ -141,10 +141,12 @@ pub(crate) fn object_literal(
     typ: &TypeIdentifier,
     value: &Literal,
 ) -> String {
-    let id = if let TypeIdentifier::Object(id) = typ {
-        id
-    } else {
-        return oracle.find(typ).literal(oracle, ctx, renderer, value);
+    let id = match typ {
+        TypeIdentifier::Object(id) => id,
+        TypeIdentifier::Coproduct(id) => {
+            return super::coproduct::coproduct_literal(fm, ctx, renderer, oracle, id, value);
+        }
+        _ => return oracle.find(typ).literal(oracle, ctx, renderer, value),
     };
     let literal_map = if let Literal::Object(map) = value {
         map
