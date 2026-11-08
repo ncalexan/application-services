@@ -29,7 +29,12 @@ impl From<FeatureManifest> for ManifestFrontEnd {
             imports: Default::default(),
             features,
             legacy_types: None,
-            types: Types { enums, objects },
+            // Coproducts are added to the single-file output in a later change.
+            types: Types {
+                enums,
+                objects,
+                coproducts: Default::default(),
+            },
         }
     }
 }

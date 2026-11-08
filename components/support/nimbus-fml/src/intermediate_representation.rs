@@ -75,6 +75,9 @@ pub enum TypeRef {
     Enum(String),
     // JSON objects can represent a data class.
     Object(String),
+    // JSON objects can also represent exactly one of a set of objects,
+    // chosen by a discriminant key.
+    Coproduct(String),
 
     // JSON objects can also represent a `Map<String, V>` or a `Map` with
     // keys that can be derived from a string.
@@ -97,6 +100,7 @@ impl Display for TypeRef {
             Self::StringAlias(v) => f.write_str(v),
             Self::Enum(v) => f.write_str(v),
             Self::Object(v) => f.write_str(v),
+            Self::Coproduct(v) => f.write_str(v),
             Self::Option(v) => f.write_fmt(format_args!("Option<{v}>")),
             Self::List(v) => f.write_fmt(format_args!("List<{v}>")),
             Self::StringMap(v) => f.write_fmt(format_args!("Map<String, {v}>")),
@@ -116,7 +120,7 @@ impl TypeRef {
 
     pub(crate) fn name(&self) -> Option<&str> {
         match self {
-            Self::Enum(s) | Self::Object(s) | Self::StringAlias(s) => Some(s),
+            Self::Enum(s) | Self::Object(s) | Self::Coproduct(s) | Self::StringAlias(s) => Some(s),
             _ => None,
         }
     }
@@ -240,6 +244,9 @@ impl TypeFinder for FeatureManifest {
         for o in self.iter_object_defs() {
             o.find_types(types);
         }
+        for c in self.iter_coproduct_defs() {
+            c.find_types(types);
+        }
         for f in self.iter_feature_defs() {
             f.find_types(types);
         }
@@ -324,6 +331,9 @@ impl FeatureManifest {
         for object in self.iter_object_defs() {
             validator.validate_object_def(object)?;
         }
+        for coproduct in self.iter_coproduct_defs() {
+            validator.validate_coproduct_def(coproduct)?;
+        }
         for feature_def in self.iter_feature_defs() {
             validator.validate_feature_def(feature_def)?;
         }
@@ -375,6 +385,22 @@ impl FeatureManifest {
             .flat_map(|fm| fm.iter_all_object_defs())
             .collect();
         objects.chain(imported)
+    }
+
+    pub fn iter_coproduct_defs(&self) -> impl Iterator<Item = &CoproductDef> {
+        self.coproduct_defs.values()
+    }
+
+    pub fn iter_all_coproduct_defs(
+        &self,
+    ) -> impl Iterator<Item = (&FeatureManifest, &CoproductDef)> {
+        let coproducts = self.iter_coproduct_defs().map(move |c| (self, c));
+        let imported: Vec<_> = self
+            .all_imports
+            .values()
+            .flat_map(|fm| fm.iter_all_coproduct_defs())
+            .collect();
+        coproducts.chain(imported)
     }
 
     pub fn iter_feature_defs(&self) -> impl Iterator<Item = &FeatureDef> {
@@ -430,6 +456,10 @@ impl FeatureManifest {
 
     pub fn find_enum(&self, nm: &str) -> Option<&EnumDef> {
         self.enum_defs.get(nm)
+    }
+
+    pub fn find_coproduct(&self, nm: &str) -> Option<&CoproductDef> {
+        self.coproduct_defs.get(nm)
     }
 
     pub fn get_feature(&self, nm: &str) -> Option<&FeatureDef> {
@@ -718,6 +748,9 @@ impl TypeFinder for ObjectDef {
     }
 }
 
+/// The discriminant key that a coproduct uses if the manifest does not specify one.
+pub(crate) const DEFAULT_COPRODUCT_DISCRIMINANT: &str = "$type";
+
 /// A coproduct is exactly one of a set of objects.
 ///
 /// A value of a coproduct is a JSON object that contains the fields of one variant's object,
@@ -732,6 +765,51 @@ pub struct CoproductDef {
     pub(crate) default_variant: String,
     /// The names of the variants' objects, in sorted order. The order has no meaning.
     pub(crate) variants: Vec<String>,
+}
+
+impl CoproductDef {
+    pub(crate) fn name(&self) -> String {
+        self.name.clone()
+    }
+    #[allow(dead_code)]
+    pub(crate) fn doc(&self) -> String {
+        self.doc.clone()
+    }
+    pub(crate) fn discriminant(&self) -> &str {
+        &self.discriminant
+    }
+    pub(crate) fn default_variant(&self) -> &str {
+        &self.default_variant
+    }
+    pub(crate) fn variants(&self) -> &[String] {
+        &self.variants
+    }
+    pub(crate) fn has_variant(&self, nm: &str) -> bool {
+        self.variants.iter().any(|v| v == nm)
+    }
+
+    /// Returns the tag of the given JSON object.
+    ///
+    /// If the discriminant key is absent, this is the default variant.
+    /// If the value of the discriminant key is not a string, this is `None`.
+    /// This does not check that the tag is one of the variants.
+    #[allow(dead_code)]
+    pub(crate) fn tag<'a>(&'a self, map: &'a Map<String, Value>) -> Option<&'a str> {
+        match map.get(&self.discriminant) {
+            None => Some(&self.default_variant),
+            Some(Value::String(s)) => Some(s),
+            Some(_) => None,
+        }
+    }
+}
+
+impl TypeFinder for CoproductDef {
+    fn find_types(&self, types: &mut HashSet<TypeRef>) {
+        types.insert(TypeRef::Coproduct(self.name()));
+        for v in self.variants() {
+            types.insert(TypeRef::Object(v.clone()));
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

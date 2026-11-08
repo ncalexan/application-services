@@ -1,0 +1,24 @@
+---
+objects:
+  Banner:
+    description: A banner with a title.
+    fields:
+      title:
+        description: The title.
+        type: String
+        default: ""
+  Carousel:
+    description: A carousel of slides.
+    fields:
+      slides:
+        description: The slides.
+        type: List<String>
+        default: []
+coproducts:
+  Promo:
+    description: A promotion on the home screen, with its own discriminant.
+    discriminant: $kind
+    default-variant: Banner
+    variants:
+      - Banner
+      - Carousel

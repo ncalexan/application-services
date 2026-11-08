@@ -165,6 +165,9 @@ impl ConcreteCodeOracle {
 
             TypeIdentifier::Enum(id) => Box::new(enum_::EnumCodeType::new(id)),
             TypeIdentifier::Object(id) => Box::new(object::ObjectCodeType::new(id)),
+            TypeIdentifier::Coproduct(_) => {
+                unimplemented!("Coproducts are not yet supported in Kotlin")
+            }
 
             TypeIdentifier::Option(ref inner) => Box::new(structural::OptionalCodeType::new(inner)),
             TypeIdentifier::List(ref inner) => Box::new(structural::ListCodeType::new(inner)),

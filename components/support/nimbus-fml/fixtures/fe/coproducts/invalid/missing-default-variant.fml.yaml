@@ -1,0 +1,37 @@
+---
+about:
+  description: An invalid coproduct.
+  kotlin:
+    class: .nimbus.MyNimbus
+    package: com.example.app
+channels:
+  - release
+features:
+  home:
+    description: The home screen.
+    variables:
+      promo:
+        description: The promotion to show.
+        type: Promo
+        default: {}
+objects:
+  Banner:
+    description: A banner with a title.
+    fields:
+      title:
+        description: The title.
+        type: String
+        default: ""
+  Carousel:
+    description: A carousel of slides.
+    fields:
+      slides:
+        description: The slides.
+        type: List<String>
+        default: []
+coproducts:
+  Promo:
+    description: A promotion.
+    variants:
+      - Banner
+      - Carousel

@@ -10,8 +10,6 @@ use crate::intermediate_representation::{
 
 pub(crate) struct TypeQuery<'a> {
     object_defs: &'a BTreeMap<String, ObjectDef>,
-    // Used when coproducts are added to the types.
-    #[allow(dead_code)]
     coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 }
 
@@ -36,9 +34,16 @@ impl<'a> TypeQuery<'a> {
         for t in unseen {
             if !seen.contains(t) {
                 seen.insert(t.clone());
-                if let TypeRef::Object(nm) = t {
-                    let def = self.object_defs.get(nm).unwrap();
-                    self.gather_types(&def.all_types(), seen);
+                match t {
+                    TypeRef::Object(nm) => {
+                        let def = self.object_defs.get(nm).unwrap();
+                        self.gather_types(&def.all_types(), seen);
+                    }
+                    TypeRef::Coproduct(nm) => {
+                        let def = self.coproduct_defs.get(nm).unwrap();
+                        self.gather_types(&def.all_types(), seen);
+                    }
+                    _ => {}
                 }
             }
         }

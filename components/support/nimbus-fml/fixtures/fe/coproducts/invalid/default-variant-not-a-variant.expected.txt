@@ -1,0 +1,1 @@
+Validation Error at coproducts/Promo/default-variant: The default variant Carousel must be one of the variants

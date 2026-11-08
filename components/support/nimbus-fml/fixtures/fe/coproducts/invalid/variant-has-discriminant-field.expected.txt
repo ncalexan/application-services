@@ -1,0 +1,1 @@
+Validation Error at coproducts/Promo/variants/Video: The object Video has a field with the same name as the discriminant `$type`

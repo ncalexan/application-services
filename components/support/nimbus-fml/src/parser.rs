@@ -170,12 +170,23 @@ impl Parser {
             child_path,
         )?;
         let enums = merge_map(&c_types.enums, &p_types.enums, "Enums", "enums", child_path)?;
+        let coproducts = merge_map(
+            &c_types.coproducts,
+            &p_types.coproducts,
+            "Coproducts",
+            "coproducts",
+            child_path,
+        )?;
 
         let imports = self.merge_import_block_list(&parent.imports, &child.imports)?;
 
         let merged = ManifestFrontEnd {
             features,
-            types: Types { enums, objects },
+            types: Types {
+                enums,
+                objects,
+                coproducts,
+            },
             legacy_types: None,
             imports,
             ..parent

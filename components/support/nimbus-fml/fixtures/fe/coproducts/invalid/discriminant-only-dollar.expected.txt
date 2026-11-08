@@ -1,0 +1,1 @@
+Validation Error at coproducts/Promo/discriminant: The discriminant `$` must start with `$`, and have at least one more character

@@ -1,0 +1,95 @@
+{
+  "channel": "nightly",
+  "enums": {},
+  "objects": {
+    "Banner": {
+      "name": "Banner",
+      "doc": "A banner with a title.",
+      "props": [
+        {
+          "name": "dismissable",
+          "doc": "Whether the user can dismiss the banner.",
+          "type": "Boolean",
+          "default": true
+        },
+        {
+          "name": "title",
+          "doc": "The title.",
+          "type": "String",
+          "default": ""
+        }
+      ],
+      "no_lint": []
+    },
+    "Carousel": {
+      "name": "Carousel",
+      "doc": "A carousel of slides.",
+      "props": [
+        {
+          "name": "autoplay",
+          "doc": "Whether the carousel moves automatically.",
+          "type": "Boolean",
+          "default": false
+        },
+        {
+          "name": "slides",
+          "doc": "The slides.",
+          "type": {
+            "List": "String"
+          },
+          "default": []
+        }
+      ],
+      "no_lint": []
+    }
+  },
+  "coproducts": {
+    "Promo": {
+      "name": "Promo",
+      "doc": "A promotion on the home screen.",
+      "discriminant": "$type",
+      "default_variant": "Banner",
+      "variants": [
+        "Banner",
+        "Carousel"
+      ]
+    }
+  },
+  "features": {
+    "home": {
+      "name": "home",
+      "description": "The home screen.",
+      "props": [
+        {
+          "name": "promo",
+          "doc": "The promotion to show.",
+          "type": {
+            "Coproduct": "Promo"
+          },
+          "default": {
+            "title": "Welcome",
+            "$type": "Carousel",
+            "slides": [
+              "one",
+              "two"
+            ]
+          }
+        }
+      ],
+      "allow_coenrollment": false
+    }
+  },
+  "about": {
+    "description": "A feature with a coproduct.",
+    "kotlin_about": {
+      "package": "com.example.app",
+      "class": ".nimbus.MyNimbus"
+    },
+    "swift_about": {
+      "module": "Client",
+      "class": "MyNimbus"
+    }
+  },
+  "imported_features": {},
+  "all_imports": {}
+}

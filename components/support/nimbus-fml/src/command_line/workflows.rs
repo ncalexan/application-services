@@ -1077,8 +1077,6 @@ mod test {
     /// This does not validate the manifest, so that a test can show the intermediate
     /// representation of a manifest that the validators do not support yet. The other helpers
     /// validate the manifest.
-    // Used by a test in a later change.
-    #[allow(dead_code)]
     fn load_ir_and_compare_with_expected(
         manifest: &str,
         channel: &str,
@@ -1208,6 +1206,34 @@ mod test {
             TargetLanguage::Swift,
             "fixtures/fe/recursive/self.expected.swift",
         )
+    }
+
+    #[test]
+    fn test_coproduct_ir() -> Result<()> {
+        load_ir_and_compare_with_expected(
+            "fixtures/fe/coproducts/simple.fml.yaml",
+            "release",
+            "fixtures/fe/coproducts/simple.release.expected.ir.json",
+        )?;
+        load_ir_and_compare_with_expected(
+            "fixtures/fe/coproducts/simple.fml.yaml",
+            "nightly",
+            "fixtures/fe/coproducts/simple.nightly.expected.ir.json",
+        )
+    }
+
+    #[test]
+    fn test_coproduct_ir_from_included_file() -> Result<()> {
+        load_ir_and_compare_with_expected(
+            "fixtures/fe/coproducts/including.fml.yaml",
+            "release",
+            "fixtures/fe/coproducts/including.expected.ir.json",
+        )
+    }
+
+    #[test]
+    fn test_coproduct_schema_errors() -> Result<()> {
+        load_invalid_and_compare_with_expected("fixtures/fe/coproducts/invalid", "release")
     }
 }
 

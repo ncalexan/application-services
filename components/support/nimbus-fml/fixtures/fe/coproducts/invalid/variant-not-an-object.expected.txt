@@ -1,0 +1,1 @@
+Validation Error at coproducts/Promo/variants/Size: The variant Size must be an object defined in this manifest

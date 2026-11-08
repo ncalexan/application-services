@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -11,8 +11,8 @@ use url::Url;
 use crate::defaults::DefaultsMerger;
 use crate::error::Result;
 use crate::intermediate_representation::{
-    CoproductDef, EnumDef, FeatureDef, FeatureManifest, GeckoPrefDef, ModuleId, ObjectDef, PropDef,
-    TargetLanguage, TypeRef, VariantDef,
+    CoproductDef, DEFAULT_COPRODUCT_DISCRIMINANT, EnumDef, FeatureDef, FeatureManifest,
+    GeckoPrefDef, ModuleId, ObjectDef, PropDef, TargetLanguage, TypeRef, VariantDef,
 };
 use crate::parser::get_typeref_from_string;
 
@@ -74,6 +74,27 @@ pub(crate) struct ObjectBody {
     pub(crate) no_lint: Vec<String>,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(deny_unknown_fields)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) struct CoproductBody {
+    pub(crate) description: String,
+    #[serde(default = "default_coproduct_discriminant")]
+    #[serde(skip_serializing_if = "is_default_coproduct_discriminant")]
+    pub(crate) discriminant: String,
+    pub(crate) default_variant: String,
+    // The variants are a set of object names: the order has no meaning.
+    pub(crate) variants: BTreeSet<String>,
+}
+
+fn default_coproduct_discriminant() -> String {
+    DEFAULT_COPRODUCT_DISCRIMINANT.to_string()
+}
+
+fn is_default_coproduct_discriminant(discriminant: &str) -> bool {
+    discriminant == DEFAULT_COPRODUCT_DISCRIMINANT
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Types {
@@ -83,6 +104,9 @@ pub(crate) struct Types {
     #[serde(default)]
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) objects: BTreeMap<String, ObjectBody>,
+    #[serde(default)]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) coproducts: BTreeMap<String, CoproductBody>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default, PartialEq, Eq)]
@@ -342,6 +366,10 @@ impl ManifestFrontEnd {
             res.insert(s.clone(), TypeRef::Object(s.clone()));
         }
 
+        for s in types.coproducts.keys() {
+            res.insert(s.clone(), TypeRef::Coproduct(s.clone()));
+        }
+
         for f in self.features.values() {
             for p in f.variables.values() {
                 if let Some(s) = &p.string_alias {
@@ -444,6 +472,28 @@ impl ManifestFrontEnd {
         objs
     }
 
+    /// Retrieves all the Coproduct type definitions represented in the manifest
+    ///
+    /// # Returns
+    /// Returns a [`std::collections::BTreeMap<String, CoproductDef>`]
+    fn get_coproducts(&self) -> BTreeMap<String, CoproductDef> {
+        let types = self.legacy_types.as_ref().unwrap_or(&self.types);
+        let mut coproducts: BTreeMap<_, _> = Default::default();
+        for (nm, body) in &types.coproducts {
+            coproducts.insert(
+                nm.to_owned(),
+                CoproductDef {
+                    name: nm.clone(),
+                    doc: body.description.clone(),
+                    discriminant: body.discriminant.clone(),
+                    default_variant: body.default_variant.clone(),
+                    variants: body.variants.iter().cloned().collect(),
+                },
+            );
+        }
+        coproducts
+    }
+
     /// Retrieves all the Enum type definitions represented in the manifest
     ///
     /// # Returns
@@ -479,8 +529,7 @@ impl ManifestFrontEnd {
     ) -> Result<FeatureManifest> {
         let enums = self.get_enums();
         let objects = self.get_objects();
-        // There is no syntax for coproducts in the manifest yet.
-        let coproducts: BTreeMap<String, CoproductDef> = Default::default();
+        let coproducts = self.get_coproducts();
         let merger = DefaultsMerger::new(
             &objects,
             &coproducts,

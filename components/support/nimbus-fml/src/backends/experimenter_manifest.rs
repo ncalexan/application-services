@@ -130,6 +130,7 @@ impl From<TypeRef> for ExperimentManifestPropType {
     fn from(typ: TypeRef) -> Self {
         match typ {
             TypeRef::Object(_)
+            | TypeRef::Coproduct(_)
             | TypeRef::EnumMap(_, _)
             | TypeRef::StringMap(_)
             | TypeRef::List(_) => Self::Json,

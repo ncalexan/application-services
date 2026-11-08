@@ -1,0 +1,57 @@
+---
+about:
+  description: A feature with a coproduct.
+  kotlin:
+    class: .nimbus.MyNimbus
+    package: com.example.app
+  swift:
+    class: MyNimbus
+    module: Client
+channels:
+  - release
+  - nightly
+features:
+  home:
+    description: The home screen.
+    variables:
+      promo:
+        description: The promotion to show.
+        type: Promo
+        default:
+          title: "Welcome"
+    defaults:
+      - channel: nightly
+        value:
+          promo:
+            $type: Carousel
+            slides: ["one", "two"]
+objects:
+  Banner:
+    description: A banner with a title.
+    fields:
+      title:
+        description: The title.
+        type: String
+        default: ""
+      dismissable:
+        description: Whether the user can dismiss the banner.
+        type: Boolean
+        default: true
+  Carousel:
+    description: A carousel of slides.
+    fields:
+      slides:
+        description: The slides.
+        type: List<String>
+        default: []
+      autoplay:
+        description: Whether the carousel moves automatically.
+        type: Boolean
+        default: false
+coproducts:
+  Promo:
+    description: A promotion on the home screen.
+    default-variant: Banner
+    variants:
+      - Banner
+      - Carousel

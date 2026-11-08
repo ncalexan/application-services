@@ -36,8 +36,6 @@ const DISALLOWED_PREFS: &[(&str, &str)] = &[
 pub(crate) struct SchemaValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
-    // Used when coproducts are added to the types.
-    #[allow(dead_code)]
     coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 
     lax_gecko_pref_validation: bool,
@@ -78,6 +76,62 @@ impl<'a> SchemaValidator<'a> {
             // Check the types exist for this property.
             let path = format!("objects/{obj_nm}/{prop_nm}");
             self.validate_type_ref(&path, &prop.typ)?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn validate_coproduct_def(&self, coproduct_def: &CoproductDef) -> Result<()> {
+        let nm = &coproduct_def.name;
+        let path = format!("coproducts/{nm}");
+
+        if self.object_defs.contains_key(nm) || self.enum_defs.contains_key(nm) {
+            return Err(FMLError::ValidationError(
+                path,
+                format!("The coproduct {nm} has the same name as an object or an enum"),
+            ));
+        }
+
+        let discriminant = coproduct_def.discriminant();
+        if !discriminant.starts_with('$') || discriminant.len() < 2 {
+            return Err(FMLError::ValidationError(
+                format!("{path}/discriminant"),
+                format!(
+                    "The discriminant `{discriminant}` must start with `$`, and have at least one more character"
+                ),
+            ));
+        }
+
+        if coproduct_def.variants().is_empty() {
+            return Err(FMLError::ValidationError(
+                format!("{path}/variants"),
+                format!("The coproduct {nm} must have at least one variant"),
+            ));
+        }
+
+        for variant in coproduct_def.variants() {
+            let Some(object_def) = self.get_object(variant) else {
+                return Err(FMLError::ValidationError(
+                    format!("{path}/variants/{variant}"),
+                    format!("The variant {variant} must be an object defined in this manifest"),
+                ));
+            };
+            if object_def.props.iter().any(|p| p.name == discriminant) {
+                return Err(FMLError::ValidationError(
+                    format!("{path}/variants/{variant}"),
+                    format!(
+                        "The object {variant} has a field with the same name as the discriminant `{discriminant}`"
+                    ),
+                ));
+            }
+        }
+
+        let default_variant = coproduct_def.default_variant();
+        if !coproduct_def.has_variant(default_variant) {
+            return Err(FMLError::ValidationError(
+                format!("{path}/default-variant"),
+                format!("The default variant {default_variant} must be one of the variants"),
+            ));
         }
 
         Ok(())
@@ -211,22 +265,29 @@ impl<'a> SchemaValidator<'a> {
             ));
         }
         for t in types {
-            if let TypeRef::Object(nm) = t {
-                // Objects can refer to each other recursively, so only visit each object once.
-                if !seen_objects.insert(nm.clone()) {
-                    continue;
-                }
-                if let Some(obj) = self.get_object(nm) {
-                    let types = obj.all_types();
-                    self.validate_string_alias_declarations(
-                        &format!("objects/{nm}"),
-                        feature,
-                        &types,
-                        string_aliases,
-                        seen_objects,
-                    )?;
-                }
+            let (path, types) = match t {
+                TypeRef::Object(nm) => match self.get_object(nm) {
+                    Some(obj) => (format!("objects/{nm}"), obj.all_types()),
+                    None => continue,
+                },
+                TypeRef::Coproduct(nm) => match self.coproduct_defs.get(nm) {
+                    Some(coproduct) => (format!("coproducts/{nm}"), coproduct.all_types()),
+                    None => continue,
+                },
+                _ => continue,
+            };
+            // Objects and coproducts can refer to each other recursively, so only visit each one once.
+            // Their names are different, so one set is enough.
+            if !seen_objects.insert(t.to_string()) {
+                continue;
             }
+            self.validate_string_alias_declarations(
+                &path,
+                feature,
+                &types,
+                string_aliases,
+                seen_objects,
+            )?;
         }
         Ok(())
     }
@@ -246,6 +307,14 @@ impl<'a> SchemaValidator<'a> {
                     return Err(FMLError::ValidationError(
                         path.to_string(),
                         format!("Found object reference with name: {name}, but no definition"),
+                    ));
+                }
+            }
+            TypeRef::Coproduct(name) => {
+                if !self.coproduct_defs.contains_key(name) {
+                    return Err(FMLError::ValidationError(
+                        path.to_string(),
+                        format!("Found coproduct reference with name: {name}, but no definition"),
                     ));
                 }
             }

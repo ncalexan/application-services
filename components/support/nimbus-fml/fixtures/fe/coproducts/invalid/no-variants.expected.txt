@@ -1,0 +1,1 @@
+Validation Error at coproducts/Promo/variants: The coproduct Promo must have at least one variant

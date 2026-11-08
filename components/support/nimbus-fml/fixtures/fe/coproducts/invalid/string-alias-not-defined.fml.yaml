@@ -1,0 +1,46 @@
+---
+about:
+  description: A coproduct whose variant uses a string-alias that the feature does not define.
+  kotlin:
+    class: .nimbus.MyNimbus
+    package: com.example.app
+channels:
+  - release
+features:
+  players:
+    description: Defines the PlayerName string-alias.
+    variables:
+      names:
+        description: The names of the players.
+        type: List<PlayerName>
+        string-alias: PlayerName
+        default: []
+  home:
+    description: Uses the coproduct, but does not define PlayerName.
+    variables:
+      promo:
+        description: The promotion to show.
+        type: Promo
+        default: {}
+objects:
+  Banner:
+    description: A banner with a title.
+    fields:
+      title:
+        description: The title.
+        type: String
+        default: ""
+  PlayerCard:
+    description: A card about one player.
+    fields:
+      player:
+        description: The name of the player.
+        type: Option<PlayerName>
+        default: null
+coproducts:
+  Promo:
+    description: A promotion.
+    default-variant: Banner
+    variants:
+      - Banner
+      - PlayerCard
