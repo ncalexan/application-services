@@ -1052,8 +1052,6 @@ mod test {
 
     /// Generates code in `language` for `manifest` for `channel`, and compares it with the contents
     /// of the `expected` file.
-    // Used by a test in a later change.
-    #[allow(dead_code)]
     fn generate_and_compare_with_expected(
         manifest: &str,
         channel: &str,
@@ -1149,6 +1147,46 @@ mod test {
             compare_with_expected(&observed, &format!("{dir}/{nm}.expected.txt"))?;
         }
         Ok(())
+    }
+
+    #[test]
+    fn test_mutually_recursive_objects_kotlin() -> Result<()> {
+        generate_and_compare_with_expected(
+            "fixtures/fe/recursive/mutual.fml.yaml",
+            "release",
+            TargetLanguage::Kotlin,
+            "fixtures/fe/recursive/mutual.expected.kt",
+        )
+    }
+
+    #[test]
+    fn test_mutually_recursive_objects_swift() -> Result<()> {
+        generate_and_compare_with_expected(
+            "fixtures/fe/recursive/mutual.fml.yaml",
+            "release",
+            TargetLanguage::Swift,
+            "fixtures/fe/recursive/mutual.expected.swift",
+        )
+    }
+
+    #[test]
+    fn test_self_recursive_object_kotlin() -> Result<()> {
+        generate_and_compare_with_expected(
+            "fixtures/fe/recursive/self.fml.yaml",
+            "release",
+            TargetLanguage::Kotlin,
+            "fixtures/fe/recursive/self.expected.kt",
+        )
+    }
+
+    #[test]
+    fn test_self_recursive_object_swift() -> Result<()> {
+        generate_and_compare_with_expected(
+            "fixtures/fe/recursive/self.fml.yaml",
+            "release",
+            TargetLanguage::Swift,
+            "fixtures/fe/recursive/self.expected.swift",
+        )
     }
 }
 

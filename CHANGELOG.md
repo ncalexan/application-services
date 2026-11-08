@@ -2,6 +2,12 @@
 
 [Full Changelog](In progress)
 
+## ✨ What's Changed ✨
+
+### Nimbus FML
+
+- Objects can now refer to each other recursively, for example object `A` with a `List<B>` field and object `B` with a `List<A>` field. Previously, the FML crashed with a stack overflow.
+
 # v162.0 (_2026-11-19_)
 
 [Full Changelog](https://github.com/mozilla/application-services/compare/v161.0...v162.0)

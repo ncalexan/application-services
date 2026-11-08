@@ -151,6 +151,7 @@ impl<'a> SchemaValidator<'a> {
             feat_nm,
             &types,
             &string_aliases,
+            &mut Default::default(),
         )?;
 
         Ok(())
@@ -185,6 +186,7 @@ impl<'a> SchemaValidator<'a> {
         feature: &str,
         types: &HashSet<TypeRef>,
         string_aliases: &HashSet<&TypeRef>,
+        seen_objects: &mut HashSet<String>,
     ) -> Result<()> {
         let unaccounted: Vec<_> = types
             .iter()
@@ -202,16 +204,21 @@ impl<'a> SchemaValidator<'a> {
             ));
         }
         for t in types {
-            if let TypeRef::Object(nm) = t
-                && let Some(obj) = self.get_object(nm)
-            {
-                let types = obj.all_types();
-                self.validate_string_alias_declarations(
-                    &format!("objects/{nm}"),
-                    feature,
-                    &types,
-                    string_aliases,
-                )?;
+            if let TypeRef::Object(nm) = t {
+                // Objects can refer to each other recursively, so only visit each object once.
+                if !seen_objects.insert(nm.clone()) {
+                    continue;
+                }
+                if let Some(obj) = self.get_object(nm) {
+                    let types = obj.all_types();
+                    self.validate_string_alias_declarations(
+                        &format!("objects/{nm}"),
+                        feature,
+                        &types,
+                        string_aliases,
+                        seen_objects,
+                    )?;
+                }
             }
         }
         Ok(())

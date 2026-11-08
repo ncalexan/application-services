@@ -1,0 +1,48 @@
+---
+about:
+  description: Two objects that refer to each other recursively.
+  kotlin:
+    class: .nimbus.MyNimbus
+    package: com.example.app
+  swift:
+    class: MyNimbus
+    module: Client
+channels:
+  - release
+features:
+  tree-feature:
+    description: A feature with mutually recursive objects.
+    variables:
+      root:
+        description: The root node.
+        type: NodeA
+        default:
+          name: "root"
+          children:
+            - label: "child"
+              children:
+                - name: "grandchild"
+                  children: []
+objects:
+  NodeA:
+    description: An A node, which has B children.
+    fields:
+      name:
+        description: The name.
+        type: String
+        default: ""
+      children:
+        description: The B children.
+        type: List<NodeB>
+        default: []
+  NodeB:
+    description: A B node, which has A children.
+    fields:
+      label:
+        description: The label.
+        type: String
+        default: ""
+      children:
+        description: The A children.
+        type: List<NodeA>
+        default: []

@@ -1,0 +1,37 @@
+---
+about:
+  description: An object that refers to itself recursively.
+  kotlin:
+    class: .nimbus.MyNimbus
+    package: com.example.app
+  swift:
+    class: MyNimbus
+    module: Client
+channels:
+  - release
+features:
+  tree-feature:
+    description: A feature with a self-recursive object.
+    variables:
+      root:
+        description: The root node.
+        type: Node
+        default:
+          name: "root"
+          children:
+            - name: "child"
+              children:
+                - name: "grandchild"
+                  children: []
+objects:
+  Node:
+    description: A node, which has Node children.
+    fields:
+      name:
+        description: The name.
+        type: String
+        default: ""
+      children:
+        description: The Node children.
+        type: List<Node>
+        default: []
