@@ -1,0 +1,14 @@
+file: $PKG_DIR/fixtures/fe/coproducts/simple.fml.yaml
+features:
+  home:
+    description: The home screen.
+    types:
+    - Banner
+    - Boolean
+    - Carousel
+    - List<String>
+    - Promo
+    - String
+    hashes:
+      schema: 38a4de5e
+      defaults: d126347b

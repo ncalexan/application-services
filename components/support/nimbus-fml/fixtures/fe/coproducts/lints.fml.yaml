@@ -1,0 +1,53 @@
+---
+# Trips only lints about coproducts. The variant objects are used through a
+# coproduct, so they are not unused.
+about:
+  description: Fixture for the coproduct lint tests.
+channels:
+  - release
+features:
+  promotions:
+    description: The promotions shown on the home screen of the browser.
+    meta-bug: https://bugzilla.mozilla.org/show_bug.cgi?id=2053531
+    contacts:
+      - jdoe@example.com
+    documentation:
+      - name: User documentation
+        url: https://example.com/promotions
+    variables:
+      enabled:
+        description: Whether promotions are shown on the home screen.
+        type: Boolean
+        default: false
+      promo:
+        description: The promotion that is shown on the home screen.
+        type: promo
+        default:
+          title: "Welcome"
+objects:
+  Banner:
+    description: A banner with a title, shown above the top sites.
+    fields:
+      title:
+        description: The title shown in the banner.
+        type: String
+        default: ""
+  Carousel:
+    description: A carousel of slides, shown above the top sites.
+    fields:
+      slides:
+        description: The text of each slide in the carousel.
+        type: List<String>
+        default: []
+coproducts:
+  promo:
+    description: TODO
+    default-variant: Banner
+    variants:
+      - Banner
+      - Carousel
+  Unused:
+    description: A coproduct that no feature in this manifest uses.
+    default-variant: Banner
+    variants:
+      - Banner

@@ -7,11 +7,11 @@
 use std::collections::{BTreeMap, HashSet};
 
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
+    CoproductDef, EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
 use crate::lints::{
-    LintInfo, Linter, UnreportedIssue, define_lints, enum_path, feature_path, object_path,
-    variable_path,
+    LintInfo, Linter, UnreportedIssue, coproduct_path, define_lints, enum_path, feature_path,
+    object_path, variable_path,
 };
 
 define_lints! {
@@ -88,7 +88,13 @@ fn lint_feature(feature: &FeatureDef, manifest: &FeatureManifest, out: &mut Vec<
     }
 
     for prop in &feature.props {
-        lint_feature_nesting(feature, prop, &manifest.obj_defs, out);
+        lint_feature_nesting(
+            feature,
+            prop,
+            &manifest.obj_defs,
+            &manifest.coproduct_defs,
+            out,
+        );
     }
 }
 
@@ -118,7 +124,12 @@ fn lint_manifest(manifest: &FeatureManifest, out: &mut Vec<UnreportedIssue>) {
     let mut used = HashSet::new();
     for feature in manifest.iter_feature_defs() {
         for prop in &feature.props {
-            mark_used(&prop.typ, &manifest.obj_defs, &mut used);
+            mark_used(
+                &prop.typ,
+                &manifest.obj_defs,
+                &manifest.coproduct_defs,
+                &mut used,
+            );
         }
     }
 
@@ -141,26 +152,48 @@ fn lint_manifest(manifest: &FeatureManifest, out: &mut Vec<UnreportedIssue>) {
             ));
         }
     }
+
+    for coproduct in manifest.iter_coproduct_defs() {
+        if !used.contains(&TypeRef::Coproduct(coproduct.name.clone())) {
+            out.push(UnreportedIssue::new(
+                &UNUSED_TYPE,
+                coproduct_path(coproduct),
+                "No feature in this manifest uses this coproduct",
+            ));
+        }
+    }
 }
 
 /// Record every type reachable from `typ`.
-fn mark_used(typ: &TypeRef, objects: &BTreeMap<String, ObjectDef>, used: &mut HashSet<TypeRef>) {
+fn mark_used(
+    typ: &TypeRef,
+    objects: &BTreeMap<String, ObjectDef>,
+    coproducts: &BTreeMap<String, CoproductDef>,
+    used: &mut HashSet<TypeRef>,
+) {
     if !used.insert(typ.clone()) {
         return;
     }
 
     match typ {
         TypeRef::Option(inner) | TypeRef::List(inner) | TypeRef::StringMap(inner) => {
-            mark_used(inner, objects, used)
+            mark_used(inner, objects, coproducts, used)
         }
         TypeRef::EnumMap(keys, values) => {
-            mark_used(keys, objects, used);
-            mark_used(values, objects, used);
+            mark_used(keys, objects, coproducts, used);
+            mark_used(values, objects, coproducts, used);
         }
         TypeRef::Object(name) => {
             if let Some(object) = objects.get(name) {
                 for prop in &object.props {
-                    mark_used(&prop.typ, objects, used);
+                    mark_used(&prop.typ, objects, coproducts, used);
+                }
+            }
+        }
+        TypeRef::Coproduct(name) => {
+            if let Some(coproduct) = coproducts.get(name) {
+                for variant in coproduct.variants() {
+                    mark_used(&TypeRef::Object(variant.clone()), objects, coproducts, used);
                 }
             }
         }
@@ -172,10 +205,11 @@ fn lint_feature_nesting(
     feature: &FeatureDef,
     prop: &PropDef,
     objects: &BTreeMap<String, ObjectDef>,
+    coproducts: &BTreeMap<String, CoproductDef>,
     out: &mut Vec<UnreportedIssue>,
 ) {
     let mut visiting = HashSet::new();
-    let depth = 1 + compute_type_depth(&prop.typ, objects, &mut visiting);
+    let depth = 1 + compute_type_depth(&prop.typ, objects, coproducts, &mut visiting);
     if depth > MAX_NESTING_DEPTH {
         out.push(UnreportedIssue::new(
             &DEEP_NESTING,
@@ -192,13 +226,14 @@ fn lint_feature_nesting(
 fn compute_type_depth(
     typ: &TypeRef,
     objects: &BTreeMap<String, ObjectDef>,
+    coproducts: &BTreeMap<String, CoproductDef>,
     visiting: &mut HashSet<String>,
 ) -> usize {
     match typ {
         TypeRef::Option(inner) | TypeRef::List(inner) | TypeRef::StringMap(inner) => {
-            compute_type_depth(inner, objects, visiting)
+            compute_type_depth(inner, objects, coproducts, visiting)
         }
-        TypeRef::EnumMap(_, values) => compute_type_depth(values, objects, visiting),
+        TypeRef::EnumMap(_, values) => compute_type_depth(values, objects, coproducts, visiting),
         TypeRef::Object(name) => {
             if !visiting.insert(name.clone()) {
                 // Stop at a cycle; it is already deep enough to report.
@@ -209,7 +244,7 @@ fn compute_type_depth(
                 .map(|o| {
                     o.props
                         .iter()
-                        .map(|p| compute_type_depth(&p.typ, objects, visiting))
+                        .map(|p| compute_type_depth(&p.typ, objects, coproducts, visiting))
                         .max()
                         .unwrap_or_default()
                 })
@@ -217,6 +252,24 @@ fn compute_type_depth(
             visiting.remove(name);
             1 + depth
         }
+        // A coproduct value is the object of one variant, so it is as deep as its deepest variant.
+        TypeRef::Coproduct(name) => coproducts
+            .get(name)
+            .map(|c| {
+                c.variants()
+                    .iter()
+                    .map(|v| {
+                        compute_type_depth(
+                            &TypeRef::Object(v.clone()),
+                            objects,
+                            coproducts,
+                            visiting,
+                        )
+                    })
+                    .max()
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default(),
         _ => 0,
     }
 }

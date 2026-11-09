@@ -1,0 +1,48 @@
+version: 1.0.0
+about:
+  description: A feature with a coproduct.
+channels:
+- nightly
+features:
+  home:
+    description: The home screen.
+    variables:
+      promo:
+        description: The promotion to show.
+        type: Promo
+        default:
+          autoplay: false
+          slides:
+          - one
+          - two
+          $type: Carousel
+objects:
+  Banner:
+    description: A banner with a title.
+    fields:
+      dismissable:
+        description: Whether the user can dismiss the banner.
+        type: Boolean
+        default: true
+      title:
+        description: The title.
+        type: String
+        default: ''
+  Carousel:
+    description: A carousel of slides.
+    fields:
+      autoplay:
+        description: Whether the carousel moves automatically.
+        type: Boolean
+        default: false
+      slides:
+        description: The slides.
+        type: List<String>
+        default: []
+coproducts:
+  Promo:
+    description: A promotion on the home screen.
+    default-variant: Banner
+    variants:
+    - Banner
+    - Carousel

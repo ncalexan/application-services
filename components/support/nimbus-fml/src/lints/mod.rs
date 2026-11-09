@@ -20,7 +20,7 @@ use std::collections::HashSet;
 use serde::Serialize;
 
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
+    CoproductDef, EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
 pub(crate) use crate::lints::macros::*;
 
@@ -52,6 +52,9 @@ pub(crate) trait Linter: Sync {
 
     /// Lint an enumeration.
     fn lint_enum(&self, _enum_def: &EnumDef, _out: &mut Vec<UnreportedIssue>) {}
+
+    /// Lint a coproduct.
+    fn lint_coproduct(&self, _coproduct: &CoproductDef, _out: &mut Vec<UnreportedIssue>) {}
 
     /// Lint a manifest.
     fn lint_manifest(&self, _manifest: &FeatureManifest, _out: &mut Vec<UnreportedIssue>) {}
@@ -268,6 +271,16 @@ impl LintReport {
             self.report_issues(unreported, &allowed_lints, module.as_deref());
         }
 
+        // Coproducts do not have a `no-lint` list yet.
+        for coproduct in fm.iter_coproduct_defs() {
+            let mut unreported = Vec::new();
+            for linter in LINTERS {
+                linter.lint_coproduct(coproduct, &mut unreported);
+            }
+
+            self.report_issues(unreported, &HashSet::new(), module.as_deref());
+        }
+
         let mut unreported = Vec::new();
         for linter in LINTERS {
             linter.lint_manifest(fm, &mut unreported);
@@ -365,6 +378,10 @@ pub(crate) fn object_field_path(object: &ObjectDef, prop: &PropDef) -> Location 
         format!("object `{}`", object.name),
         format!("field `{}`", prop.name),
     )
+}
+
+pub(crate) fn coproduct_path(coproduct: &CoproductDef) -> Location {
+    Location::subject(format!("coproduct `{}`", coproduct.name))
 }
 
 pub(crate) fn enum_path(enum_def: &EnumDef) -> Location {

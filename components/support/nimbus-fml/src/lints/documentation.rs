@@ -4,10 +4,12 @@
 
 //! Lints about feature documentation.
 
-use crate::intermediate_representation::{EnumDef, FeatureDef, FeatureManifest, ObjectDef};
+use crate::intermediate_representation::{
+    CoproductDef, EnumDef, FeatureDef, FeatureManifest, ObjectDef,
+};
 use crate::lints::{
-    LintInfo, Linter, Location, UnreportedIssue, define_lints, enum_path, enum_variant_path,
-    feature_path, object_field_path, object_path, variable_path,
+    LintInfo, Linter, Location, UnreportedIssue, coproduct_path, define_lints, enum_path,
+    enum_variant_path, feature_path, object_field_path, object_path, variable_path,
 };
 
 define_lints! {
@@ -52,6 +54,10 @@ impl Linter for DocumentationLints {
 
     fn lint_enum(&self, enum_def: &EnumDef, out: &mut Vec<UnreportedIssue>) {
         lint_enum(enum_def, out);
+    }
+
+    fn lint_coproduct(&self, coproduct: &CoproductDef, out: &mut Vec<UnreportedIssue>) {
+        lint_coproduct(coproduct, out);
     }
 }
 
@@ -110,6 +116,16 @@ fn lint_enum(enum_def: &EnumDef, out: &mut Vec<UnreportedIssue>) {
             out,
         );
     }
+}
+
+fn lint_coproduct(coproduct: &CoproductDef, out: &mut Vec<UnreportedIssue>) {
+    lint_description(
+        "coproduct",
+        &coproduct.name,
+        &coproduct.doc,
+        coproduct_path(coproduct),
+        out,
+    );
 }
 
 fn lint_description(

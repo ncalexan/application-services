@@ -1,0 +1,8 @@
+home:
+  description: The home screen.
+  hasExposure: true
+  exposureDescription: ''
+  variables:
+    promo:
+      type: json
+      description: The promotion to show.

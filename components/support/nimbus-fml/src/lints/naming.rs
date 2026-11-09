@@ -8,17 +8,17 @@ use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
+    CoproductDef, EnumDef, FeatureDef, FeatureManifest, ObjectDef, PropDef, TypeRef,
 };
 use crate::lints::{
-    LintInfo, Linter, Location, UnreportedIssue, define_lints, enum_path, feature_path, is_boolean,
-    object_field_path, object_path, variable_path,
+    LintInfo, Linter, Location, UnreportedIssue, coproduct_path, define_lints, enum_path,
+    feature_path, is_boolean, object_field_path, object_path, variable_path,
 };
 
 define_lints! {
     TYPE_NAME_CASING: Naming =
-        "Objects and enums should be UpperCamelCase.",
-        "Objects and enums become classes and types in the generated Kotlin and Swift.";
+        "Objects, enums and coproducts should be UpperCamelCase.",
+        "Objects, enums and coproducts become classes and types in the generated Kotlin and Swift.";
     COMMON_PREFIX: Naming =
         "Variables shouldn't repeat the name of the feature they belong to.",
         "Variables are always read together with the feature they belong to, so a shared prefix only makes them longer. Drop it, or group the variables into an object if the prefix is really a thing in its own right.";
@@ -78,6 +78,10 @@ impl Linter for Naming {
     fn lint_enum(&self, enum_def: &EnumDef, out: &mut Vec<UnreportedIssue>) {
         lint_enum(enum_def, out);
     }
+
+    fn lint_coproduct(&self, coproduct: &CoproductDef, out: &mut Vec<UnreportedIssue>) {
+        lint_coproduct(coproduct, out);
+    }
 }
 
 fn lint_feature(feature: &FeatureDef, out: &mut Vec<UnreportedIssue>) {
@@ -87,6 +91,16 @@ fn lint_feature(feature: &FeatureDef, out: &mut Vec<UnreportedIssue>) {
     }
 
     lint_common_prefix(feature, out);
+}
+
+fn lint_coproduct(coproduct: &CoproductDef, out: &mut Vec<UnreportedIssue>) {
+    if !UPPER_CAMEL_CASE.is_match(&coproduct.name) {
+        out.push(UnreportedIssue::new(
+            &TYPE_NAME_CASING,
+            coproduct_path(coproduct),
+            format!("`{}` isn't UpperCamelCase", coproduct.name),
+        ));
+    }
 }
 
 fn lint_object(object: &ObjectDef, out: &mut Vec<UnreportedIssue>) {

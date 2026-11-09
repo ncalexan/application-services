@@ -1276,6 +1276,64 @@ mod test {
     }
 
     #[test]
+    fn test_coproduct_experimenter_manifest() -> Result<()> {
+        let output = NamedTempFile::new()?;
+        let cmd = create_experimenter_manifest_cmd(
+            "fixtures/fe/coproducts/simple.fml.yaml",
+            output.path(),
+        )?;
+        generate_experimenter_manifest(&cmd)?;
+        let observed = std::fs::read_to_string(output.path())?;
+        compare_with_expected(
+            &observed,
+            "fixtures/fe/coproducts/simple.expected.experimenter.yaml",
+        )
+    }
+
+    #[test]
+    fn test_coproduct_single_file() -> Result<()> {
+        let output = NamedTempFile::new()?;
+        let cmd = GenerateSingleFileManifestCmd {
+            loader: Default::default(),
+            manifest: join(pkg_dir(), "fixtures/fe/coproducts/simple.fml.yaml"),
+            output: output.path().into(),
+            channel: "nightly".to_string(),
+        };
+        generate_single_file_manifest(&cmd)?;
+        let observed = std::fs::read_to_string(output.path())?;
+        compare_with_expected(
+            &observed,
+            "fixtures/fe/coproducts/simple.nightly.expected.single-file.yaml",
+        )?;
+
+        // The single file gives the same defaults as the original manifest.
+        test_single_merged_manifest_file("fixtures/fe/coproducts/simple.fml.yaml", "nightly")?;
+        test_single_merged_manifest_file("fixtures/fe/coproducts/merging.fml.yaml", "nightly")?;
+        test_single_merged_manifest_file("fixtures/fe/coproducts/including.fml.yaml", "release")
+    }
+
+    #[test]
+    fn test_coproduct_info() -> Result<()> {
+        let files: FileLoader = TryFrom::try_from(&LoaderConfig::default())?;
+        let path = files.file_path(&join(pkg_dir(), "fixtures/fe/coproducts/simple.fml.yaml"))?;
+        let fm = load_feature_manifest(files, path.clone(), Some("release"), false)?;
+        let observed = replace_pkg_dir(&ManifestInfo::from(&path, &fm).to_yaml()?)?;
+        compare_with_expected(
+            &observed,
+            "fixtures/fe/coproducts/simple.expected.info.yaml",
+        )
+    }
+
+    #[test]
+    fn test_coproduct_lints() -> Result<()> {
+        let report = lint_report(&lint_cmd("fixtures/fe/coproducts/lints.fml.yaml"))?;
+        compare_with_expected(
+            &rendered(&report)?,
+            "fixtures/fe/coproducts/lints.expected.txt",
+        )
+    }
+
+    #[test]
     fn test_coproduct_feature_configs() -> Result<()> {
         validate_configs_and_compare_with_expected(
             "fixtures/fe/coproducts/simple.fml.yaml",

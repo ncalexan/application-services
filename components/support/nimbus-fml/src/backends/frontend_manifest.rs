@@ -5,11 +5,12 @@
 use std::collections::BTreeMap;
 
 use crate::frontend::{
-    EnumBody, EnumVariantBody, ExampleBlock, FeatureBody, FeatureFieldBody, FieldBody,
-    InlineExampleBlock, ManifestFrontEnd, ObjectBody, Types,
+    CoproductBody, EnumBody, EnumVariantBody, ExampleBlock, FeatureBody, FeatureFieldBody,
+    FieldBody, InlineExampleBlock, ManifestFrontEnd, ObjectBody, Types,
 };
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureExample, FeatureManifest, ObjectDef, PropDef, TypeRef, VariantDef,
+    CoproductDef, EnumDef, FeatureDef, FeatureExample, FeatureManifest, ObjectDef, PropDef,
+    TypeRef, VariantDef,
 };
 
 impl From<FeatureManifest> for ManifestFrontEnd {
@@ -17,6 +18,7 @@ impl From<FeatureManifest> for ManifestFrontEnd {
         let features = merge(&value, |fm| fm.iter_feature_defs().collect(), |f| &f.name);
         let objects = merge(&value, |fm| fm.iter_object_defs().collect(), |o| &o.name);
         let enums = merge(&value, |fm| fm.iter_enum_defs().collect(), |e| &e.name);
+        let coproducts = merge(&value, |fm| fm.iter_coproduct_defs().collect(), |c| &c.name);
 
         let about = value.about.description_only();
         let channels = value.channel.into_iter().collect();
@@ -29,11 +31,10 @@ impl From<FeatureManifest> for ManifestFrontEnd {
             imports: Default::default(),
             features,
             legacy_types: None,
-            // Coproducts are added to the single-file output in a later change.
             types: Types {
                 enums,
                 objects,
-                coproducts: Default::default(),
+                coproducts,
             },
         }
     }
@@ -110,6 +111,17 @@ impl From<ObjectDef> for ObjectBody {
             description: value.doc,
             fields,
             no_lint: value.no_lint.clone(),
+        }
+    }
+}
+
+impl From<CoproductDef> for CoproductBody {
+    fn from(value: CoproductDef) -> Self {
+        Self {
+            description: value.doc,
+            discriminant: value.discriminant,
+            default_variant: value.default_variant,
+            variants: value.variants.into_iter().collect(),
         }
     }
 }

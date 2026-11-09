@@ -1,0 +1,25 @@
+coproduct `Unused`
+  ⚠️  UNUSED_TYPE               No feature in this manifest uses this coproduct
+
+coproduct `promo`
+  ⚠️  TERSE_DESCRIPTION         The description of this coproduct is only 1 word: `TODO`
+  ⚠️  TODO_IN_DESCRIPTION       The description of this coproduct is still marked `todo`
+  ⚠️  TYPE_NAME_CASING          `promo` isn't UpperCamelCase
+
+What to do about these:
+  TERSE_DESCRIPTION
+    The name is already visible next to the description; use the description to say what
+    changes when the value changes.
+  TODO_IN_DESCRIPTION
+    Placeholder descriptions ship to Experimenter as-is.
+  TYPE_NAME_CASING
+    Objects, enums and coproducts become classes and types in the generated Kotlin and
+    Swift.
+  UNUSED_TYPE
+    Unused types are still generated into Kotlin and Swift, and still have to be
+    maintained. Delete it, or use it.
+
+Found 4 error(s) in 2 location(s).
+
+A lint that doesn't apply can be switched off for a single feature with a `no-lint:
+[LINT_NAME]` annotation on that feature.

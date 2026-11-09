@@ -7,6 +7,7 @@
 ### Nimbus FML
 
 - Objects can now refer to each other recursively, for example object `A` with a `List<B>` field and object `B` with a `List<A>` field. Previously, the FML crashed with a stack overflow.
+- New `coproducts:` block: a coproduct is exactly one of a set of objects, chosen by a discriminant key that starts with `$` (the default is `$type`). A variable can change from `type: Banner` to a coproduct with `default-variant: Banner` without making existing defaults or experiment configurations invalid. Kotlin gets a `sealed interface`, and Swift gets an `enum` with associated values.
 - Generated Kotlin now escapes `$` in strings. Previously, a string default that contained `$` was read as a Kotlin string template.
 - A `Map` variable or field with no `default`, or with a default that is not a map, is now a validation error. Previously, the FML crashed.
 
