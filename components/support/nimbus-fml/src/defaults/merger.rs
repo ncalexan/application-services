@@ -8,10 +8,13 @@ use serde_json::{Value, json};
 
 use crate::error::{FMLError, Result};
 use crate::frontend::DefaultBlock;
-use crate::intermediate_representation::{FeatureDef, ObjectDef, PropDef, TypeRef};
+use crate::intermediate_representation::{CoproductDef, FeatureDef, ObjectDef, PropDef, TypeRef};
 
 pub struct DefaultsMerger<'object> {
     objects: &'object BTreeMap<String, ObjectDef>,
+    // Used when the defaults of coproducts are merged.
+    #[allow(dead_code)]
+    coproducts: &'object BTreeMap<String, CoproductDef>,
 
     supported_channels: Vec<String>,
     channel: Option<String>,
@@ -20,11 +23,13 @@ pub struct DefaultsMerger<'object> {
 impl<'object> DefaultsMerger<'object> {
     pub fn new(
         objects: &'object BTreeMap<String, ObjectDef>,
+        coproducts: &'object BTreeMap<String, CoproductDef>,
         supported_channels: Vec<String>,
         channel: Option<String>,
     ) -> Self {
         Self {
             objects,
+            coproducts,
             supported_channels,
             channel,
         }
@@ -33,10 +38,16 @@ impl<'object> DefaultsMerger<'object> {
     #[cfg(test)]
     pub fn new_with_channel(
         objects: &'object BTreeMap<String, ObjectDef>,
+        coproducts: &'object BTreeMap<String, CoproductDef>,
         supported_channels: Vec<String>,
         channel: String,
     ) -> Self {
-        Self::new(objects, supported_channels, Some(channel.to_string()))
+        Self::new(
+            objects,
+            coproducts,
+            supported_channels,
+            Some(channel.to_string()),
+        )
     }
 
     fn collect_feature_defaults(&self, feature: &FeatureDef) -> serde_json::Value {
@@ -1007,8 +1018,10 @@ mod unit_tests {
     fn test_merge_feature_default_unsupported_channel() -> Result<()> {
         let mut feature_def: FeatureDef = Default::default();
         let objects = Default::default();
+        let coproducts = Default::default();
         let merger = DefaultsMerger::new_with_channel(
             &objects,
+            &coproducts,
             vec!["release".into(), "beta".into()],
             "nightly".into(),
         );
@@ -1057,8 +1070,10 @@ mod unit_tests {
             },
         ]))?;
         let objects = Default::default();
+        let coproducts = Default::default();
         let merger = DefaultsMerger::new_with_channel(
             &objects,
+            &coproducts,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
         );
@@ -1098,8 +1113,10 @@ mod unit_tests {
             }
         }]))?;
         let objects = Default::default();
+        let coproducts = Default::default();
         let merger = DefaultsMerger::new_with_channel(
             &objects,
+            &coproducts,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
         );
@@ -1170,8 +1187,10 @@ mod unit_tests {
             },
         ]))?;
         let objects = Default::default();
+        let coproducts = Default::default();
         let merger = DefaultsMerger::new_with_channel(
             &objects,
+            &coproducts,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "release".into(),
         );
@@ -1228,8 +1247,10 @@ mod unit_tests {
             },
         ]))?;
         let objects = Default::default();
+        let coproducts = Default::default();
         let merger = DefaultsMerger::new_with_channel(
             &objects,
+            &coproducts,
             vec!["release".into(), "beta".into(), "nightly".into()],
             "nightly".into(),
         );

@@ -216,6 +216,10 @@ pub struct FeatureManifest {
     #[serde(rename = "objects")]
     #[serde(default)]
     pub(crate) obj_defs: BTreeMap<String, ObjectDef>,
+    #[serde(rename = "coproducts")]
+    #[serde(default)]
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub(crate) coproduct_defs: BTreeMap<String, CoproductDef>,
     #[serde(rename = "features")]
     pub(crate) feature_defs: BTreeMap<String, FeatureDef>,
     #[serde(default)]
@@ -256,6 +260,7 @@ impl FeatureManifest {
         features: BTreeMap<String, FeatureDef>,
         enums: BTreeMap<String, EnumDef>,
         objects: BTreeMap<String, ObjectDef>,
+        coproducts: BTreeMap<String, CoproductDef>,
         about: AboutBlock,
     ) -> Self {
         Self {
@@ -264,6 +269,7 @@ impl FeatureManifest {
             about,
             enum_defs: enums,
             obj_defs: objects,
+            coproduct_defs: coproducts,
             feature_defs: features,
 
             ..Default::default()
@@ -313,7 +319,7 @@ impl FeatureManifest {
     }
 
     fn validate_schema_with(&self, lax_gecko_pref_validation: bool) -> Result<(), FMLError> {
-        let validator = SchemaValidator::new(&self.enum_defs, &self.obj_defs)
+        let validator = SchemaValidator::new(&self.enum_defs, &self.obj_defs, &self.coproduct_defs)
             .with_lax_gecko_pref_validation(lax_gecko_pref_validation);
         for object in self.iter_object_defs() {
             validator.validate_object_def(object)?;
@@ -331,8 +337,9 @@ impl FeatureManifest {
     }
 
     fn validate_defaults_with(&self, lax_gecko_pref_validation: bool) -> Result<()> {
-        let validator = DefaultsValidator::new(&self.enum_defs, &self.obj_defs)
-            .with_lax_gecko_pref_validation(lax_gecko_pref_validation);
+        let validator =
+            DefaultsValidator::new(&self.enum_defs, &self.obj_defs, &self.coproduct_defs)
+                .with_lax_gecko_pref_validation(lax_gecko_pref_validation);
         for object in self.iter_object_defs() {
             validator.validate_object_def(object)?;
         }
@@ -472,10 +479,19 @@ impl FeatureManifest {
             .find_feature(feature_name)
             .ok_or_else(|| InvalidFeatureError(feature_name.to_string()))?;
 
-        let merger = DefaultsMerger::new(&manifest.obj_defs, Default::default(), None);
+        let merger = DefaultsMerger::new(
+            &manifest.obj_defs,
+            &manifest.coproduct_defs,
+            Default::default(),
+            None,
+        );
         let merged_value = merger.merge_feature_config(feature_def, &feature_value);
 
-        let validator = DefaultsValidator::new(&manifest.enum_defs, &manifest.obj_defs);
+        let validator = DefaultsValidator::new(
+            &manifest.enum_defs,
+            &manifest.obj_defs,
+            &manifest.coproduct_defs,
+        );
         let errors = validator.get_errors(feature_def, &merged_value, &feature_value);
         validator.guard_errors(feature_def, &merged_value, errors)?;
 
@@ -491,10 +507,16 @@ impl FeatureManifest {
         feature_def: &FeatureDef,
         feature_value: &Value,
     ) -> (Value, Vec<crate::editing::FeatureValidationError>) {
-        let merger = DefaultsMerger::new(&self.obj_defs, Default::default(), None);
+        let merger = DefaultsMerger::new(
+            &self.obj_defs,
+            &self.coproduct_defs,
+            Default::default(),
+            None,
+        );
         let merged_value = merger.merge_feature_config(feature_def, feature_value);
 
-        let validator = DefaultsValidator::new(&self.enum_defs, &self.obj_defs);
+        let validator =
+            DefaultsValidator::new(&self.enum_defs, &self.obj_defs, &self.coproduct_defs);
         let errors = validator.get_errors(feature_def, &merged_value, feature_value);
         (merged_value, errors)
     }
@@ -502,17 +524,17 @@ impl FeatureManifest {
 
 impl FeatureManifest {
     pub(crate) fn feature_types(&self, feature_def: &FeatureDef) -> HashSet<TypeRef> {
-        TypeQuery::new(&self.obj_defs).all_types(feature_def)
+        TypeQuery::new(&self.obj_defs, &self.coproduct_defs).all_types(feature_def)
     }
 
     pub(crate) fn feature_schema_hash(&self, feature_def: &FeatureDef) -> String {
-        let hasher = SchemaHasher::new(&self.enum_defs, &self.obj_defs);
+        let hasher = SchemaHasher::new(&self.enum_defs, &self.obj_defs, &self.coproduct_defs);
         let hash = hasher.hash(feature_def) & 0xffffffff;
         format!("{hash:x}")
     }
 
     pub(crate) fn feature_defaults_hash(&self, feature_def: &FeatureDef) -> String {
-        let hasher = DefaultsHasher::new(&self.obj_defs);
+        let hasher = DefaultsHasher::new(&self.obj_defs, &self.coproduct_defs);
         let hash = hasher.hash(feature_def) & 0xffffffff;
         format!("{hash:x}")
     }
@@ -694,6 +716,22 @@ impl TypeFinder for ObjectDef {
             p.find_types(types);
         }
     }
+}
+
+/// A coproduct is exactly one of a set of objects.
+///
+/// A value of a coproduct is a JSON object that contains the fields of one variant's object,
+/// and a discriminant key. The value of the discriminant key is the tag of the variant, which
+/// is the name of the variant's object. If the discriminant key is absent, the value is the
+/// default variant.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub struct CoproductDef {
+    pub(crate) name: String,
+    pub(crate) doc: String,
+    pub(crate) discriminant: String,
+    pub(crate) default_variant: String,
+    /// The names of the variants' objects, in sorted order. The order has no meaning.
+    pub(crate) variants: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

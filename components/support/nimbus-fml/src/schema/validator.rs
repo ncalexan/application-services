@@ -8,8 +8,10 @@ use regex::Regex;
 
 use crate::error::FMLError;
 use crate::error::Result;
+use crate::intermediate_representation::{
+    CoproductDef, FeatureDef, FeatureManifest, TypeFinder, TypeRef,
+};
 use crate::intermediate_representation::{EnumDef, ObjectDef};
-use crate::intermediate_representation::{FeatureDef, FeatureManifest, TypeFinder, TypeRef};
 
 const DISALLOWED_PREFS: &[(&str, &str)] = &[
     (
@@ -34,6 +36,9 @@ const DISALLOWED_PREFS: &[(&str, &str)] = &[
 pub(crate) struct SchemaValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
+    // Used when coproducts are added to the types.
+    #[allow(dead_code)]
+    coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 
     lax_gecko_pref_validation: bool,
 }
@@ -42,10 +47,12 @@ impl<'a> SchemaValidator<'a> {
     pub(crate) fn new(
         enums: &'a BTreeMap<String, EnumDef>,
         objs: &'a BTreeMap<String, ObjectDef>,
+        coproducts: &'a BTreeMap<String, CoproductDef>,
     ) -> Self {
         Self {
             enum_defs: enums,
             object_defs: objs,
+            coproduct_defs: coproducts,
             lax_gecko_pref_validation: false,
         }
     }
@@ -286,7 +293,8 @@ mod manifest_schema {
     fn validate_enum_type_ref_doesnt_match_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -307,7 +315,8 @@ mod manifest_schema {
     fn validate_obj_type_ref_doesnt_match_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -328,7 +337,8 @@ mod manifest_schema {
     fn validate_enum_map_with_non_enum_key() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -349,7 +359,8 @@ mod manifest_schema {
     fn validate_list_with_enum_with_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -370,7 +381,8 @@ mod manifest_schema {
     fn validate_enum_map_with_enum_with_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -394,7 +406,8 @@ mod manifest_schema {
     fn validate_enum_map_with_obj_value_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -418,7 +431,8 @@ mod manifest_schema {
     fn validate_string_map_with_enum_value_no_def() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -439,7 +453,8 @@ mod manifest_schema {
     fn validate_nested_optionals_fail() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -460,7 +475,8 @@ mod manifest_schema {
     fn validate_disallowed_pref_fails() -> Result<()> {
         let enums = Default::default();
         let objs = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         let fm = FeatureDef::new(
             "some_def",
             "test doc",
@@ -519,7 +535,8 @@ mod string_aliases {
 
         let enums = Default::default();
         let objects = Default::default();
-        let validator = SchemaValidator::new(&enums, &objects);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objects, &coproducts);
 
         // -> Verify that only one property per feature can define the same string-alias.
         let fm = with_feature(&[all_names.clone(), all_names2.clone()]);
@@ -556,13 +573,15 @@ mod string_aliases {
         // { all-names: ["Alice"], team: { newest-member: "Alice" } }
         let fm = with_feature(&[all_names.clone(), team.clone()]);
         let objs = with_objects(slice::from_ref(&team_def));
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         validator.validate_feature_def(&fm)?;
 
         // { team: { newest-member: "Alice" } }
         let fm = with_feature(slice::from_ref(&team));
         let objs = with_objects(slice::from_ref(&team_def));
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         assert!(validator.validate_feature_def(&fm).is_err());
 
         // -> Validate a property in a deeply nested object can validate against a string-alias
@@ -579,12 +598,14 @@ mod string_aliases {
         // { all-names: ["Alice"], match: { team: { newest-member: "Alice" }} }
         let fm = with_feature(&[all_names.clone(), match_.clone()]);
         let objs = with_objects(&[team_def.clone(), match_def.clone()]);
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         validator.validate_feature_def(&fm)?;
 
         // { match: {team: { newest-member: "Alice" }} }
         let fm = with_feature(slice::from_ref(&match_));
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
         assert!(validator.validate_feature_def(&fm).is_err());
 
         Ok(())
@@ -616,14 +637,17 @@ mod test_gecko_prefs {
 
         let objs = Default::default();
         let enums = Default::default();
-        let validator = SchemaValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = SchemaValidator::new(&enums, &objs, &coproducts);
 
         assert!(matches!(
             validator.validate_feature_def(&feature),
             Err(FMLError::ValidationError(path, reason)) if path == "features/Feature/var" && reason == "Pref keys can only be used with Option<Boolean>, Option<Int>, and Option<String>  variables"
         ));
 
-        let validator = SchemaValidator::new(&enums, &objs).with_lax_gecko_pref_validation(true);
+        let coproducts = Default::default();
+        let validator =
+            SchemaValidator::new(&enums, &objs, &coproducts).with_lax_gecko_pref_validation(true);
 
         assert!(matches!(validator.validate_feature_def(&feature), Ok(())));
     }

@@ -7,17 +7,24 @@ use std::hash::{Hash, Hasher};
 
 use serde_json::Value;
 
-use crate::intermediate_representation::{FeatureDef, ObjectDef, PropDef, TypeRef};
+use crate::intermediate_representation::{CoproductDef, FeatureDef, ObjectDef, PropDef, TypeRef};
 use crate::schema::Sha256Hasher;
 use crate::schema::TypeQuery;
 
 pub(crate) struct DefaultsHasher<'a> {
     object_defs: &'a BTreeMap<String, ObjectDef>,
+    coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 }
 
 impl<'a> DefaultsHasher<'a> {
-    pub(crate) fn new(objs: &'a BTreeMap<String, ObjectDef>) -> Self {
-        Self { object_defs: objs }
+    pub(crate) fn new(
+        objs: &'a BTreeMap<String, ObjectDef>,
+        coproducts: &'a BTreeMap<String, CoproductDef>,
+    ) -> Self {
+        Self {
+            object_defs: objs,
+            coproduct_defs: coproducts,
+        }
     }
 
     pub(crate) fn hash(&self, feature_def: &FeatureDef) -> u64 {
@@ -39,7 +46,7 @@ impl<'a> DefaultsHasher<'a> {
     }
 
     fn all_types(&self, feature_def: &FeatureDef) -> HashSet<TypeRef> {
-        TypeQuery::new(self.object_defs).all_types(feature_def)
+        TypeQuery::new(self.object_defs, self.coproduct_defs).all_types(feature_def)
     }
 }
 
@@ -120,7 +127,8 @@ mod unit_tests {
 
         let mut prev: Option<u64> = None;
         for _ in 0..100 {
-            let hasher = DefaultsHasher::new(&objs);
+            let coproducts = Default::default();
+            let hasher = DefaultsHasher::new(&objs, &coproducts);
             let hash = hasher.hash(&feature_def);
             if let Some(prev) = prev {
                 assert_eq!(prev, hash);
@@ -147,7 +155,8 @@ mod unit_tests {
         );
         let f2 = FeatureDef::new("test_feature", "", vec![p3, p2, p1], false);
 
-        let hasher = DefaultsHasher::new(&objs);
+        let coproducts = Default::default();
+        let hasher = DefaultsHasher::new(&objs, &coproducts);
         assert_eq!(hasher.hash(&f1), hasher.hash(&f2));
         Ok(())
     }
@@ -169,7 +178,8 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false)
         };
 
-        let hasher = DefaultsHasher::new(&objs);
+        let coproducts = Default::default();
+        let hasher = DefaultsHasher::new(&objs, &coproducts);
         assert_eq!(hasher.hash(&f1), hasher.hash(&f2));
 
         Ok(())
@@ -185,7 +195,8 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false)
         };
 
-        let hasher = DefaultsHasher::new(&objs);
+        let coproducts = Default::default();
+        let hasher = DefaultsHasher::new(&objs, &coproducts);
 
         // Sensitive to change in type of properties
         let ne = {
@@ -233,7 +244,8 @@ mod unit_tests {
             ObjectDef::into_map(&[obj_def])
         };
 
-        let hasher = DefaultsHasher::new(&objs);
+        let coproducts = Default::default();
+        let hasher = DefaultsHasher::new(&objs, &coproducts);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -247,7 +259,8 @@ mod unit_tests {
             ObjectDef::into_map(&[obj_def])
         };
 
-        let hasher = DefaultsHasher::new(&objs);
+        let coproducts = Default::default();
+        let hasher = DefaultsHasher::new(&objs, &coproducts);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);
@@ -278,7 +291,8 @@ mod unit_tests {
             ObjectDef::into_map(&[obj1_def.clone(), obj2_def])
         };
 
-        let hasher = DefaultsHasher::new(&objs);
+        let coproducts = Default::default();
+        let hasher = DefaultsHasher::new(&objs, &coproducts);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -290,7 +304,8 @@ mod unit_tests {
             );
             ObjectDef::into_map(&[obj1_def.clone(), obj2_def])
         };
-        let hasher = DefaultsHasher::new(&objs);
+        let coproducts = Default::default();
+        let hasher = DefaultsHasher::new(&objs, &coproducts);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);

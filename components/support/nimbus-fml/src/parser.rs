@@ -277,6 +277,7 @@ impl Parser {
             // a. Prepare a DefaultsMerger, with an object map.
             let merger = DefaultsMerger::new(
                 &child_manifest.obj_defs,
+                &child_manifest.coproduct_defs,
                 frontend.channels.clone(),
                 channel.map(str::to_string),
             );

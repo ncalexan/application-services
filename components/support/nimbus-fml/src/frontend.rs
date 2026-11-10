@@ -11,7 +11,7 @@ use url::Url;
 use crate::defaults::DefaultsMerger;
 use crate::error::Result;
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, FeatureManifest, GeckoPrefDef, ModuleId, ObjectDef, PropDef,
+    CoproductDef, EnumDef, FeatureDef, FeatureManifest, GeckoPrefDef, ModuleId, ObjectDef, PropDef,
     TargetLanguage, TypeRef, VariantDef,
 };
 use crate::parser::get_typeref_from_string;
@@ -479,8 +479,14 @@ impl ManifestFrontEnd {
     ) -> Result<FeatureManifest> {
         let enums = self.get_enums();
         let objects = self.get_objects();
-        let merger =
-            DefaultsMerger::new(&objects, self.channels.clone(), channel.map(str::to_string));
+        // There is no syntax for coproducts in the manifest yet.
+        let coproducts: BTreeMap<String, CoproductDef> = Default::default();
+        let merger = DefaultsMerger::new(
+            &objects,
+            &coproducts,
+            self.channels.clone(),
+            channel.map(str::to_string),
+        );
 
         let features = self.get_feature_defs(&merger)?;
 
@@ -495,6 +501,7 @@ impl ManifestFrontEnd {
             features,
             enums,
             objects,
+            coproducts,
             about,
         ))
     }

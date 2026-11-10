@@ -9,12 +9,15 @@ use serde_json::{Map, Value};
 use crate::editing::{ErrorConverter, ErrorKind, ErrorPath, FeatureValidationError};
 use crate::error::FMLError;
 use crate::error::Result;
+use crate::intermediate_representation::{CoproductDef, FeatureDef, PropDef, TypeRef};
 use crate::intermediate_representation::{EnumDef, ObjectDef};
-use crate::intermediate_representation::{FeatureDef, PropDef, TypeRef};
 
 pub(crate) struct DefaultsValidator<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
+    // Used when the defaults of coproducts are validated.
+    #[allow(dead_code)]
+    coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 
     lax_gecko_pref_validation: bool,
 }
@@ -23,10 +26,12 @@ impl<'a> DefaultsValidator<'a> {
     pub(crate) fn new(
         enum_defs: &'a BTreeMap<String, EnumDef>,
         object_defs: &'a BTreeMap<String, ObjectDef>,
+        coproduct_defs: &'a BTreeMap<String, CoproductDef>,
     ) -> Self {
         Self {
             enum_defs,
             object_defs,
+            coproduct_defs,
             lax_gecko_pref_validation: false,
         }
     }
@@ -711,7 +716,8 @@ mod test_types {
         let mut prop = PropDef::new("key", &TypeRef::String, &json!("default!"));
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
 
         prop.default = json!(100);
@@ -725,7 +731,8 @@ mod test_types {
         let mut prop = PropDef::new("key", &TypeRef::Int, &json!(100));
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!("100");
 
@@ -739,7 +746,8 @@ mod test_types {
         let mut prop = PropDef::new("key", &TypeRef::Boolean, &json!(true));
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!("100");
 
@@ -753,7 +761,8 @@ mod test_types {
         let mut prop = PropDef::new("key", &TypeRef::BundleImage, &json!("IconBlue"));
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
 
@@ -768,7 +777,8 @@ mod test_types {
         let mut prop = PropDef::new("key", &TypeRef::BundleText, &json!("BundledText"));
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
 
@@ -787,7 +797,8 @@ mod test_types {
         );
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!(100);
 
@@ -806,7 +817,8 @@ mod test_types {
         );
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
 
         prop.default = json!(100);
@@ -822,7 +834,8 @@ mod test_types {
 
         let enums1 = enums();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!("green");
 
@@ -849,7 +862,8 @@ mod test_types {
         );
         let enums1 = enums();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!({
             "blue": 1,
@@ -878,7 +892,8 @@ mod test_types {
         );
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
         prop.default = json!({
             "blue": 1,
@@ -904,7 +919,8 @@ mod test_types {
         );
         let enums1 = Default::default();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
 
         prop.default = json!([1, 2, "oops"]);
@@ -935,7 +951,8 @@ mod test_types {
 
         let enums1 = enums();
         let objs = objects();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         fm.validate_prop_defaults(&prop)?;
 
         prop.default = json!({
@@ -1018,7 +1035,8 @@ mod test_types {
         );
         let enums1 = enums();
         let objs = Default::default();
-        let fm = DefaultsValidator::new(&enums1, &objs);
+        let coproducts = Default::default();
+        let fm = DefaultsValidator::new(&enums1, &objs, &coproducts);
         // OK because the value is optional, and thus it's okay if it's missing (green is missing from the default)
         fm.validate_prop_defaults(&prop)?;
         Ok(())
@@ -1135,7 +1153,8 @@ mod string_alias {
     fn test_with_simple_string_alias(mate: &TypeRef, the_team: &PropDef) -> Result<()> {
         let objs = Default::default();
         let enums = Default::default();
-        let validator = DefaultsValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = DefaultsValidator::new(&enums, &objs, &coproducts);
 
         // For all these tests, the_team defines the set of strings which are valid TeamMate strings.
 
@@ -1270,7 +1289,8 @@ mod string_alias {
             ],
         );
         let enums = Default::default();
-        let validator = DefaultsValidator::new(&enums, &objects);
+        let coproducts = Default::default();
+        let validator = DefaultsValidator::new(&enums, &objects, &coproducts);
 
         // newest-player: Player
         let nm = "newest-player";
@@ -1354,14 +1374,17 @@ mod test_gecko_prefs {
 
         let objs = Default::default();
         let enums = Default::default();
-        let validator = DefaultsValidator::new(&enums, &objs);
+        let coproducts = Default::default();
+        let validator = DefaultsValidator::new(&enums, &objs, &coproducts);
 
         assert!(matches!(
             validator.validate_feature_def(&feature),
             Err(FMLError::ValidationError(path, reason)) if path == "features/Feature.var" && reason == "gecko-pref and default are mutually exclusive",
         ));
 
-        let validator = DefaultsValidator::new(&enums, &objs).with_lax_gecko_pref_validation(true);
+        let coproducts = Default::default();
+        let validator =
+            DefaultsValidator::new(&enums, &objs, &coproducts).with_lax_gecko_pref_validation(true);
         assert!(matches!(validator.validate_feature_def(&feature), Ok(())));
     }
 }

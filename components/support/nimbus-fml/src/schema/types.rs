@@ -4,15 +4,26 @@
 
 use std::collections::{BTreeMap, HashSet};
 
-use crate::intermediate_representation::{FeatureDef, ObjectDef, TypeFinder, TypeRef};
+use crate::intermediate_representation::{
+    CoproductDef, FeatureDef, ObjectDef, TypeFinder, TypeRef,
+};
 
 pub(crate) struct TypeQuery<'a> {
     object_defs: &'a BTreeMap<String, ObjectDef>,
+    // Used when coproducts are added to the types.
+    #[allow(dead_code)]
+    coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 }
 
 impl<'a> TypeQuery<'a> {
-    pub(crate) fn new(objs: &'a BTreeMap<String, ObjectDef>) -> Self {
-        Self { object_defs: objs }
+    pub(crate) fn new(
+        objs: &'a BTreeMap<String, ObjectDef>,
+        coproducts: &'a BTreeMap<String, CoproductDef>,
+    ) -> Self {
+        Self {
+            object_defs: objs,
+            coproduct_defs: coproducts,
+        }
     }
 
     pub(crate) fn all_types(&self, feature_def: &FeatureDef) -> HashSet<TypeRef> {

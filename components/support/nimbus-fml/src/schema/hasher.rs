@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use sha2::{Digest, Sha256};
 
 use crate::intermediate_representation::{
-    EnumDef, FeatureDef, ObjectDef, PropDef, TypeRef, VariantDef,
+    CoproductDef, EnumDef, FeatureDef, ObjectDef, PropDef, TypeRef, VariantDef,
 };
 
 use super::TypeQuery;
@@ -16,16 +16,19 @@ use super::TypeQuery;
 pub(crate) struct SchemaHasher<'a> {
     enum_defs: &'a BTreeMap<String, EnumDef>,
     object_defs: &'a BTreeMap<String, ObjectDef>,
+    coproduct_defs: &'a BTreeMap<String, CoproductDef>,
 }
 
 impl<'a> SchemaHasher<'a> {
     pub(crate) fn new(
         enums: &'a BTreeMap<String, EnumDef>,
         objs: &'a BTreeMap<String, ObjectDef>,
+        coproducts: &'a BTreeMap<String, CoproductDef>,
     ) -> Self {
         Self {
             enum_defs: enums,
             object_defs: objs,
+            coproduct_defs: coproducts,
         }
     }
 
@@ -54,7 +57,7 @@ impl<'a> SchemaHasher<'a> {
     }
 
     fn all_types(&self, feature_def: &FeatureDef) -> HashSet<TypeRef> {
-        let all_types = TypeQuery::new(self.object_defs);
+        let all_types = TypeQuery::new(self.object_defs, self.coproduct_defs);
         all_types.all_types(feature_def)
     }
 }
@@ -154,7 +157,8 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false);
         let mut prev: Option<u64> = None;
         for _ in 0..100 {
-            let hasher = SchemaHasher::new(&enums, &objs);
+            let coproducts = Default::default();
+            let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
             let hash = hasher.hash(&feature_def);
             if let Some(prev) = prev {
                 assert_eq!(prev, hash);
@@ -184,7 +188,8 @@ mod unit_tests {
 
         let f2 = { FeatureDef::new("test_feature", "documentation", vec![prop2, prop1], false) };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         assert_eq!(hasher.hash(&f1), hasher.hash(&f2));
 
         Ok(())
@@ -207,7 +212,8 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false)
         };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         assert_eq!(hasher.hash(&f1), hasher.hash(&f2));
 
         Ok(())
@@ -224,7 +230,8 @@ mod unit_tests {
             FeatureDef::new("test_feature", "documentation", vec![prop1, prop2], false)
         };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
 
         // Sensitive to change in type of properties
         let ne = {
@@ -270,14 +277,16 @@ mod unit_tests {
             EnumDef::into_map(&[enum1])
         };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         let h1 = hasher.hash(&f1);
 
         let enums = {
             let enum1 = EnumDef::new(enum_nm, &["one", "two", "newly-added"]);
             EnumDef::into_map(&[enum1])
         };
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);
@@ -303,7 +312,8 @@ mod unit_tests {
             EnumDef::into_map(enums1)
         };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -314,7 +324,8 @@ mod unit_tests {
             let enums1 = &[enum1, enum2];
             EnumDef::into_map(enums1)
         };
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         let h2 = hasher.hash(&f1);
 
         assert_eq!(h1, h2);
@@ -342,7 +353,8 @@ mod unit_tests {
             ObjectDef::into_map(&[obj_def])
         };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -358,7 +370,8 @@ mod unit_tests {
             ObjectDef::into_map(&[obj_def])
         };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);
@@ -386,7 +399,8 @@ mod unit_tests {
             ObjectDef::into_map(&[obj1])
         };
 
-        let hasher = SchemaHasher::new(&enums, &objects);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objects, &coproducts);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -403,7 +417,8 @@ mod unit_tests {
             ObjectDef::into_map(&[obj1, obj2])
         };
 
-        let hasher = SchemaHasher::new(&enums, &objects);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objects, &coproducts);
         let h2 = hasher.hash(&f1);
 
         assert_eq!(h1, h2);
@@ -435,7 +450,8 @@ mod unit_tests {
             EnumDef::into_map(&[enum1])
         };
 
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         // Get an original hash here.
         let h1 = hasher.hash(&f1);
 
@@ -444,7 +460,8 @@ mod unit_tests {
             let enum1 = EnumDef::new(enum_nm, &["one", "two", "newly-added"]);
             EnumDef::into_map(&[enum1])
         };
-        let hasher = SchemaHasher::new(&enums, &objs);
+        let coproducts = Default::default();
+        let hasher = SchemaHasher::new(&enums, &objs, &coproducts);
         let ne = hasher.hash(&f1);
 
         assert_ne!(h1, ne);
