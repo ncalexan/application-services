@@ -1180,6 +1180,16 @@ mod test {
     }
 
     #[test]
+    fn test_kotlin_strings_with_dollar_signs() -> Result<()> {
+        generate_and_compare_with_expected(
+            "fixtures/fe/strings/dollar.fml.yaml",
+            "release",
+            TargetLanguage::Kotlin,
+            "fixtures/fe/strings/dollar.expected.kt",
+        )
+    }
+
+    #[test]
     fn test_self_recursive_object_swift() -> Result<()> {
         generate_and_compare_with_expected(
             "fixtures/fe/recursive/self.fml.yaml",

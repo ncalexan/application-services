@@ -24,12 +24,15 @@ pub fn enum_variant_name(nm: &dyn Display) -> String {
 /// Surrounds a string with quotes.
 /// In Kotlin, you can """triple quote""" multi-line strings
 /// so you don't have to escape " and \n characters.
+///
+/// A `$` starts a string template in Kotlin, so it is escaped. In a triple quoted string,
+/// `\$` is not an escape, so `${'$'}` is used.
 pub fn quoted(string: &dyn Display) -> String {
     let string = string.to_string();
     if string.contains('"') || string.contains('\n') {
-        format!(r#""""{}""""#, string)
+        format!(r#""""{}""""#, string.replace('$', "${'$'}"))
     } else {
-        format!(r#""{}""#, string)
+        format!(r#""{}""#, string.replace('$', "\\$"))
     }
 }
 

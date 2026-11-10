@@ -7,6 +7,7 @@
 ### Nimbus FML
 
 - Objects can now refer to each other recursively, for example object `A` with a `List<B>` field and object `B` with a `List<A>` field. Previously, the FML crashed with a stack overflow.
+- Generated Kotlin now escapes `$` in strings. Previously, a string default that contained `$` was read as a Kotlin string template.
 
 # v162.0 (_2026-11-19_)
 

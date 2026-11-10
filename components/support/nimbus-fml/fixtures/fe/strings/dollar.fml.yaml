@@ -1,0 +1,20 @@
+---
+about:
+  description: Strings that contain dollar signs.
+  kotlin:
+    class: .nimbus.MyNimbus
+    package: com.example.app
+channels:
+  - release
+features:
+  prices:
+    description: Strings with dollar signs, which start string templates in Kotlin.
+    variables:
+      price:
+        description: A string with a dollar sign.
+        type: String
+        default: "$5, or ${price}"
+      quoted-price:
+        description: A string with a dollar sign and quotes.
+        type: String
+        default: 'The "$5" price'
