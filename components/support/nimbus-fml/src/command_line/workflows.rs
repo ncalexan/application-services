@@ -996,6 +996,160 @@ mod test {
         test_single_merged_manifest_file("fixtures/fe/misc-features.yaml", "debug")?;
         Ok(())
     }
+
+    /// Compares `observed` with the contents of the `expected` file. Expected files always end with
+    /// a newline, so a newline is added to `observed` if it does not have one.
+    ///
+    /// Set the environment variable `FML_UPDATE_EXPECTED` to write `observed` to the `expected`
+    /// file instead.
+    fn compare_with_expected(observed: &str, expected: &str) -> Result<()> {
+        let observed = if observed.ends_with('\n') {
+            observed.to_string()
+        } else {
+            format!("{observed}\n")
+        };
+        let expected_path = join(pkg_dir(), expected);
+        if std::env::var_os("FML_UPDATE_EXPECTED").is_some() {
+            std::fs::write(&expected_path, &observed)?;
+        }
+        let expected = std::fs::read_to_string(&expected_path)?;
+
+        assert_eq!(
+            expected, observed,
+            "Output differs from {expected_path}. Set FML_UPDATE_EXPECTED=1 to update it."
+        );
+        Ok(())
+    }
+
+    /// Replaces the package directory in `text` with `$PKG_DIR`. Some output contains the path of
+    /// a fixture, which is different on each machine.
+    fn replace_pkg_dir(text: &str) -> Result<String> {
+        let canonical_pkg_dir = std::fs::canonicalize(pkg_dir())?.display().to_string();
+        Ok(text
+            .replace(&canonical_pkg_dir, "$PKG_DIR")
+            .replace(&pkg_dir(), "$PKG_DIR"))
+    }
+
+    /// Returns the names of the files in `dir` that end with `suffix`, without the suffix, in
+    /// sorted order.
+    fn fixture_names(dir: &str, suffix: &str) -> Result<Vec<String>> {
+        let mut names: Vec<_> = std::fs::read_dir(join(pkg_dir(), dir))?
+            .filter_map(|entry| entry.ok())
+            .filter_map(|entry| entry.file_name().into_string().ok())
+            .filter_map(|nm| nm.strip_suffix(suffix).map(str::to_string))
+            .collect();
+        names.sort();
+        assert!(!names.is_empty(), "No `*{suffix}` files found in {dir}");
+        Ok(names)
+    }
+
+    /// Loads and validates `manifest` for `channel`.
+    fn load_and_validate(manifest: &str, channel: &str) -> Result<FeatureManifest> {
+        let files: FileLoader = TryFrom::try_from(&LoaderConfig::default())?;
+        let path = files.file_path(&join(pkg_dir(), manifest))?;
+        load_feature_manifest(files, path, Some(channel), false)
+    }
+
+    /// Generates code in `language` for `manifest` for `channel`, and compares it with the contents
+    /// of the `expected` file.
+    // Used by a test in a later change.
+    #[allow(dead_code)]
+    fn generate_and_compare_with_expected(
+        manifest: &str,
+        channel: &str,
+        language: TargetLanguage,
+        expected: &str,
+    ) -> Result<()> {
+        let output = NamedTempFile::new()?;
+        let cmd = GenerateStructCmd {
+            manifest: join(pkg_dir(), manifest),
+            output: output.path().into(),
+            language,
+            channel: channel.into(),
+            loader: Default::default(),
+        };
+        generate_struct(&cmd)?;
+        let observed = std::fs::read_to_string(output.path())?;
+        compare_with_expected(&observed, expected)
+    }
+
+    /// Loads `manifest` for `channel`, and compares the intermediate representation (as JSON) with
+    /// the contents of the `expected` file.
+    ///
+    /// This does not validate the manifest, so that a test can show the intermediate
+    /// representation of a manifest that the validators do not support yet. The other helpers
+    /// validate the manifest.
+    // Used by a test in a later change.
+    #[allow(dead_code)]
+    fn load_ir_and_compare_with_expected(
+        manifest: &str,
+        channel: &str,
+        expected: &str,
+    ) -> Result<()> {
+        let files: FileLoader = TryFrom::try_from(&LoaderConfig::default())?;
+        let path = files.file_path(&join(pkg_dir(), manifest))?;
+        let ir = Parser::new(files, path)?.get_intermediate_representation(Some(channel))?;
+        compare_with_expected(&serde_json::to_string_pretty(&ir)?, expected)
+    }
+
+    /// Loads and validates `manifest` for each of the `channels`, and compares the default JSON with
+    /// the contents of the `{expected_prefix}.{channel}.expected.json` file.
+    // Used by a test in a later change.
+    #[allow(dead_code)]
+    fn load_defaults_and_compare_with_expected(
+        manifest: &str,
+        channels: &[&str],
+        expected_prefix: &str,
+    ) -> Result<()> {
+        for channel in channels {
+            let ir = load_and_validate(manifest, channel)?;
+            compare_with_expected(
+                &serde_json::to_string_pretty(&ir.default_json())?,
+                &format!("{expected_prefix}.{channel}.expected.json"),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Loads and validates each `*.fml.yaml` manifest in `dir` for `channel`, and compares the
+    /// error with the contents of the `*.expected.txt` file with the same name.
+    // Used by a test in a later change.
+    #[allow(dead_code)]
+    fn load_invalid_and_compare_with_expected(dir: &str, channel: &str) -> Result<()> {
+        for nm in fixture_names(dir, MATCHING_FML_EXTENSION)? {
+            let error = load_and_validate(&format!("{dir}/{nm}{MATCHING_FML_EXTENSION}"), channel)
+                .expect_err(&format!("{nm}{MATCHING_FML_EXTENSION} should be invalid"));
+            compare_with_expected(
+                &replace_pkg_dir(&error.to_string())?,
+                &format!("{dir}/{nm}.expected.txt"),
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Validates each `*.json` feature configuration in `dir` for `feature` in `manifest` for
+    /// `channel`, and compares the result with the contents of the `*.expected.txt` file with the
+    /// same name. The result is the merged value of the feature, or the error.
+    // Used by a test in a later change.
+    #[allow(dead_code)]
+    fn validate_configs_and_compare_with_expected(
+        manifest: &str,
+        channel: &str,
+        feature: &str,
+        dir: &str,
+    ) -> Result<()> {
+        let ir = load_and_validate(manifest, channel)?;
+        for nm in fixture_names(dir, ".json")? {
+            let config = std::fs::read_to_string(join(pkg_dir(), &format!("{dir}/{nm}.json")))?;
+            let config: serde_json::Value = serde_json::from_str(&config)?;
+            let observed = match ir.validate_feature_config(feature, config) {
+                Ok(feature_def) => serde_json::to_string_pretty(&feature_def.default_json())?,
+                Err(error) => error.to_string(),
+            };
+            compare_with_expected(&observed, &format!("{dir}/{nm}.expected.txt"))?;
+        }
+        Ok(())
+    }
 }
 
 #[cfg(all(
