@@ -1,0 +1,28 @@
+---
+about:
+  description: A map with no default.
+channels:
+  - release
+enums:
+  Size:
+    description: A size.
+    variants:
+      small:
+        description: Small.
+      large:
+        description: Large.
+features:
+  home:
+    description: The home screen.
+    variables:
+      holder:
+        description: An object with a map field.
+        type: Holder
+        default: {}
+objects:
+  Holder:
+    description: An object with a map field, with no default.
+    fields:
+      labels:
+        description: A map of strings, with no default.
+        type: Map<String, String>

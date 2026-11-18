@@ -1,0 +1,21 @@
+---
+about:
+  description: A map with no default.
+channels:
+  - release
+enums:
+  Size:
+    description: A size.
+    variants:
+      small:
+        description: Small.
+      large:
+        description: Large.
+features:
+  home:
+    description: The home screen.
+    variables:
+      labels:
+        description: A map of strings, with a default that is not a map.
+        type: Map<String, String>
+        default: "not a map"

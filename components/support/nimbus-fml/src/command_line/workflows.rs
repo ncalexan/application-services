@@ -1092,8 +1092,6 @@ mod test {
 
     /// Loads and validates `manifest` for each of the `channels`, and compares the default JSON with
     /// the contents of the `{expected_prefix}.{channel}.expected.json` file.
-    // Used by a test in a later change.
-    #[allow(dead_code)]
     fn load_defaults_and_compare_with_expected(
         manifest: &str,
         channels: &[&str],
@@ -1111,8 +1109,6 @@ mod test {
 
     /// Loads and validates each `*.fml.yaml` manifest in `dir` for `channel`, and compares the
     /// error with the contents of the `*.expected.txt` file with the same name.
-    // Used by a test in a later change.
-    #[allow(dead_code)]
     fn load_invalid_and_compare_with_expected(dir: &str, channel: &str) -> Result<()> {
         for nm in fixture_names(dir, MATCHING_FML_EXTENSION)? {
             let error = load_and_validate(&format!("{dir}/{nm}{MATCHING_FML_EXTENSION}"), channel)
@@ -1176,6 +1172,21 @@ mod test {
             "release",
             TargetLanguage::Kotlin,
             "fixtures/fe/recursive/self.expected.kt",
+        )
+    }
+
+    #[test]
+    fn test_missing_defaults_errors() -> Result<()> {
+        load_invalid_and_compare_with_expected("fixtures/fe/missing-defaults/invalid", "release")
+    }
+
+    #[test]
+    fn test_missing_map_default_from_feature_defaults() -> Result<()> {
+        // A map with no default of its own is valid if the feature's `defaults` give it a value.
+        load_defaults_and_compare_with_expected(
+            "fixtures/fe/missing-defaults/map-from-feature-defaults.fml.yaml",
+            &["release"],
+            "fixtures/fe/missing-defaults/map-from-feature-defaults",
         )
     }
 

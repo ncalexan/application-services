@@ -70,9 +70,11 @@ impl<'object> DefaultsMerger<'object> {
     }
 
     fn collect_map_defaults(&self, v_type: &TypeRef, obj: &serde_json::Value) -> serde_json::Value {
-        let map = obj
-            .as_object()
-            .unwrap_or_else(|| panic!("Expected a JSON object as a default"));
+        // A default that is not a JSON object, for example a missing default, is not valid for a
+        // map. The DefaultsValidator reports this.
+        let Some(map) = obj.as_object() else {
+            return obj.clone();
+        };
         let mut res = serde_json::value::Map::new();
         for (k, v) in map {
             let collected = self.collect_prop_defaults(v_type, v);

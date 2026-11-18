@@ -1,0 +1,20 @@
+---
+about:
+  description: A map with no default.
+channels:
+  - release
+enums:
+  Size:
+    description: A size.
+    variants:
+      small:
+        description: Small.
+      large:
+        description: Large.
+features:
+  home:
+    description: The home screen.
+    variables:
+      counts:
+        description: A map with enum keys, with no default.
+        type: Map<Size, Int>
