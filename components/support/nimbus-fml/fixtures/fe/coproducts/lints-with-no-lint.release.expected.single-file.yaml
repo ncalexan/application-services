@@ -1,0 +1,54 @@
+version: 1.0.0
+about:
+  description: Fixture for the coproduct lint tests.
+channels:
+- release
+features:
+  promotions:
+    description: The promotions shown on the home screen of the browser.
+    documentation:
+    - name: User documentation
+      url: https://example.com/promotions
+    contacts:
+    - jdoe@example.com
+    meta-bug: https://bugzilla.mozilla.org/show_bug.cgi?id=2053531
+    variables:
+      enabled:
+        description: Whether promotions are shown on the home screen.
+        type: Boolean
+        default: false
+      promo:
+        description: The promotion that is shown on the home screen.
+        type: promo
+        default:
+          title: Welcome
+objects:
+  Banner:
+    description: A banner with a title, shown above the top sites.
+    fields:
+      title:
+        description: The title shown in the banner.
+        type: String
+        default: ''
+  Carousel:
+    description: A carousel of slides, shown above the top sites.
+    fields:
+      slides:
+        description: The text of each slide in the carousel.
+        type: List<String>
+        default: []
+coproducts:
+  Unused:
+    description: A coproduct that no feature in this manifest uses.
+    default-variant: Banner
+    variants:
+    - Banner
+  promo:
+    description: TODO
+    default-variant: Banner
+    variants:
+    - Banner
+    - Carousel
+    no-lint:
+    - TYPE_NAME_CASING
+    - TODO_IN_DESCRIPTION

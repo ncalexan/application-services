@@ -1334,6 +1334,37 @@ mod test {
     }
 
     #[test]
+    fn test_coproduct_lints_with_no_lint() -> Result<()> {
+        let report = lint_report(&lint_cmd(
+            "fixtures/fe/coproducts/lints-with-no-lint.fml.yaml",
+        ))?;
+        compare_with_expected(
+            &rendered(&report)?,
+            "fixtures/fe/coproducts/lints-with-no-lint.expected.txt",
+        )
+    }
+
+    #[test]
+    fn test_coproduct_no_lint_in_single_file() -> Result<()> {
+        let output = NamedTempFile::new()?;
+        let cmd = GenerateSingleFileManifestCmd {
+            loader: Default::default(),
+            manifest: join(
+                pkg_dir(),
+                "fixtures/fe/coproducts/lints-with-no-lint.fml.yaml",
+            ),
+            output: output.path().into(),
+            channel: "release".to_string(),
+        };
+        generate_single_file_manifest(&cmd)?;
+        let observed = std::fs::read_to_string(output.path())?;
+        compare_with_expected(
+            &observed,
+            "fixtures/fe/coproducts/lints-with-no-lint.release.expected.single-file.yaml",
+        )
+    }
+
+    #[test]
     fn test_coproduct_feature_configs() -> Result<()> {
         validate_configs_and_compare_with_expected(
             "fixtures/fe/coproducts/simple.fml.yaml",

@@ -1,0 +1,19 @@
+coproduct `Unused`
+  ⚠️  UNUSED_TYPE               No feature in this manifest uses this coproduct
+
+coproduct `promo`
+  ⚠️  TERSE_DESCRIPTION         The description of this coproduct is only 1 word: `TODO`
+
+What to do about these:
+  TERSE_DESCRIPTION
+    The name is already visible next to the description; use the description to say what
+    changes when the value changes.
+  UNUSED_TYPE
+    Unused types are still generated into Kotlin and Swift, and still have to be
+    maintained. Delete it, or use it.
+
+Found 2 error(s) in 2 location(s).
+
+ℹ️ 2 issue(s) silenced by `no-lint`
+A lint that doesn't apply can be switched off for a single feature with a `no-lint:
+[LINT_NAME]` annotation on that feature.

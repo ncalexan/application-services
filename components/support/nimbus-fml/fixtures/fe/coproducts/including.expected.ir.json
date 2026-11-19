@@ -40,7 +40,8 @@
       "variants": [
         "Banner",
         "Carousel"
-      ]
+      ],
+      "no_lint": []
     }
   },
   "features": {

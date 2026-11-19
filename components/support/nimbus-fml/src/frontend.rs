@@ -85,6 +85,10 @@ pub(crate) struct CoproductBody {
     pub(crate) default_variant: String,
     // The variants are a set of object names: the order has no meaning.
     pub(crate) variants: BTreeSet<String>,
+    /// Lints this coproduct is excused from.
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub(crate) no_lint: Vec<String>,
 }
 
 fn default_coproduct_discriminant() -> String {
@@ -488,6 +492,7 @@ impl ManifestFrontEnd {
                     discriminant: body.discriminant.clone(),
                     default_variant: body.default_variant.clone(),
                     variants: body.variants.iter().cloned().collect(),
+                    no_lint: body.no_lint.clone(),
                 },
             );
         }

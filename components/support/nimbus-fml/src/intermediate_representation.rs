@@ -765,6 +765,8 @@ pub struct CoproductDef {
     pub(crate) default_variant: String,
     /// The names of the variants' objects, in sorted order. The order has no meaning.
     pub(crate) variants: Vec<String>,
+    /// Lints this coproduct is excused from.
+    pub(crate) no_lint: Vec<String>,
 }
 
 impl CoproductDef {

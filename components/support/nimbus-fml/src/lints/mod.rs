@@ -271,14 +271,16 @@ impl LintReport {
             self.report_issues(unreported, &allowed_lints, module.as_deref());
         }
 
-        // Coproducts do not have a `no-lint` list yet.
         for coproduct in fm.iter_coproduct_defs() {
             let mut unreported = Vec::new();
             for linter in LINTERS {
                 linter.lint_coproduct(coproduct, &mut unreported);
             }
 
-            self.report_issues(unreported, &HashSet::new(), module.as_deref());
+            let allowed_lints: HashSet<&str> =
+                coproduct.no_lint.iter().map(String::as_str).collect();
+
+            self.report_issues(unreported, &allowed_lints, module.as_deref());
         }
 
         let mut unreported = Vec::new();

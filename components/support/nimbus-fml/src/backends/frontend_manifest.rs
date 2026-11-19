@@ -122,6 +122,7 @@ impl From<CoproductDef> for CoproductBody {
             discriminant: value.discriminant,
             default_variant: value.default_variant,
             variants: value.variants.into_iter().collect(),
+            no_lint: value.no_lint,
         }
     }
 }
